@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rutasegura.application.plan_import import PlanImportService
 from rutasegura.application.projects import ProjectService
+from rutasegura.application.simulation_service import SimulationService
 from rutasegura.data.database import Database, default_database_path
 
 
@@ -16,6 +17,7 @@ class AppServices:
 
     projects: ProjectService
     plans: PlanImportService
+    simulations: SimulationService
     database: Database
 
     @classmethod
@@ -26,6 +28,7 @@ class AppServices:
         return cls(
             projects=ProjectService(database, path.parent / "planos"),
             plans=PlanImportService(),
+            simulations=SimulationService(database, path.parent / "trayectorias"),
             database=database,
         )
 

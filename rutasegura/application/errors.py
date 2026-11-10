@@ -10,3 +10,7 @@ class UserFacingError(Exception):
     def message(self) -> str:
         """Mensaje para mostrar."""
         return str(self)
+
+
+class OperationCancelled(Exception):  # noqa: N818 - nombre de dominio
+    """El usuario canceló una operación larga (por ejemplo, la simulación)."""

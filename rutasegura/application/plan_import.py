@@ -10,8 +10,10 @@ import numpy as np
 import numpy.typing as npt
 
 from rutasegura.application.errors import UserFacingError
+from rutasegura.domain.enums import UseType
 from rutasegura.domain.geometry import Point
-from rutasegura.domain.plan import FloorPlan
+from rutasegura.domain.plan import FloorPlan, Room
+from rutasegura.engines.navigation.rooms import detect_rooms
 from rutasegura.engines.vision.images import (
     IMAGE_SUFFIXES,
     PDF_SUFFIX,
@@ -75,3 +77,41 @@ class PlanImportService:
         """
         result = detect_plan(image, VisionParams(scale_m_per_px=plan.scale_m_per_px))
         return dataclasses.replace(plan, walls=result.walls, doors=result.doors, exits=result.exits)
+
+    @staticmethod
+    def detect_rooms(plan: FloorPlan, use: UseType, name_template: str) -> FloorPlan:
+        """Agrega los ambientes cerrados que encuentre y que no se superpongan con los existentes.
+
+        Los nombres nuevos siguen ``name_template`` (con ``{number}``) sin repetir los usados.
+        """
+        try:
+            polygons = detect_rooms(plan)
+        except ValueError as exc:
+            raise UserFacingError(str(exc)) from exc
+        used = {r.name for r in plan.rooms}
+        taken_centers = [r.area.centroid for r in plan.rooms]
+        rooms = list(plan.rooms)
+        number = 1
+        for polygon in polygons:
+            center = polygon.centroid
+            if any(_inside(r.area.vertices, center) for r in plan.rooms) or center in taken_centers:
+                continue
+            while name_template.format(number=number) in used:
+                number += 1
+            name = name_template.format(number=number)
+            used.add(name)
+            rooms.append(Room(name, use, polygon))
+        return dataclasses.replace(plan, rooms=tuple(rooms))
+
+
+def _inside(vertices: tuple[Point, ...], p: Point) -> bool:
+    inside = False
+    j = len(vertices) - 1
+    for i, vi in enumerate(vertices):
+        vj = vertices[j]
+        if (vi.y > p.y) != (vj.y > p.y):
+            x_cross = (vj.x - vi.x) * (p.y - vi.y) / (vj.y - vi.y) + vi.x
+            if p.x < x_cross:
+                inside = not inside
+        j = i
+    return inside
