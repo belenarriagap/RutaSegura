@@ -147,7 +147,7 @@ class Simulation:
         radius = a.radius[active]
         moving = status[active] == MOVING
 
-        density = self._density(pos)
+        density = self._density(pos)  # todos los presentes frenan el paso
         r, c = self.grid.to_cell(pos)
         rho = density[r, c]
 
@@ -214,11 +214,13 @@ class Simulation:
             self.exit_index[leaving] = target[out]
             self.evacuation_time[leaving] = self.time_s + dt
 
-        # métricas de densidad
-        self.density_accumulated += density * dt
-        above = density >= p.congestion_density
+        # Métricas: solo personas en movimiento (un aula llena esperando no es un cuello de
+        # botella; sí lo es la aglomeración al circular).
+        flow = self._density(pos[moving]) if moving.any() else np.zeros_like(density)
+        self.density_accumulated += flow * dt
+        above = flow >= p.congestion_density
         self.time_above[above] += dt
-        self.density_when_above[above] += density[above] * dt
+        self.density_when_above[above] += flow[above] * dt
 
         self.time_s += dt
         self.steps += 1
