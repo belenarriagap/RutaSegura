@@ -98,6 +98,8 @@ qt_api = "pyside6"
 [tool.coverage.run]
 source = ["rutasegura"]
 branch = true
+# Alembic ejecuta estos archivos con exec(); su prueba es tests/integration/data/test_migrations.py
+omit = ["rutasegura/data/migrations/*"]
 
 [tool.coverage.report]
 show_missing = true
