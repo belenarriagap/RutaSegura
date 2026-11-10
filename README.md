@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 0 (base del proyecto). Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 1 (datos) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 
@@ -74,4 +74,17 @@ docs/            CHANGELOG, decisiones (ADR)
 
 - [docs/CHANGELOG.md](docs/CHANGELOG.md): cambios por hito.
 - [docs/decisiones.md](docs/decisiones.md): decisiones de diseño (ADR).
+- [docs/perfiles.md](docs/perfiles.md): perfiles de personas por defecto y sus fuentes.
 - [CLAUDE.md](CLAUDE.md): especificación completa del proyecto.
+
+## Base de datos
+
+- La base de datos es SQLite local, en `%LOCALAPPDATA%\RutaSegura\rutasegura.db`.
+- Al abrirse, aplica sola las migraciones pendientes.
+- Las trayectorias de las simulaciones se guardan en archivos binarios aparte, no en SQLite.
+
+Para crear una migración después de cambiar `rutasegura/data/models.py`:
+
+```bash
+uv run alembic revision --autogenerate -m "descripcion" --rev-id 0002
+```

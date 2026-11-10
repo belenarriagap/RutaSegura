@@ -77,3 +77,57 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
     versiones nuevas con `dataclasses.replace`, lo que facilita el deshacer/rehacer.
   - La excepción es `AgentArrays`: es mutable para que la simulación vectorizada actualice los
     arrays en el lugar.
+
+## ADR-007: esquema SQLite en español y atributos en inglés
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** la §6 define las tablas y columnas en español (`proyecto.nombre`,
+  `piso.escala_m_por_px`...). La convención del código es usar inglés.
+- **Decisión:**
+  - Las tablas y columnas replican la §6, para que el modelo de datos de la tesis coincida con la
+    base real.
+  - Las clases ORM y sus atributos van en inglés (`ProjectRecord.name` se mapea a la columna
+    `nombre`).
+- **Columnas agregadas a la §6:**
+  - `simulacion.semilla`: el informe debe mostrar la semilla aunque luego se edite el escenario.
+  - `observacion.descripcion` y `observacion.norma`.
+  - `observacion.verificado`: el informe debe advertir cuando usó una regla no verificada.
+- **Alternativa:** todo en inglés. Es más uniforme, pero se aleja del documento de la tesis.
+
+## ADR-008: referencias por nombre entre escenarios y plano
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - Las ocupaciones identifican el ambiente por (nivel, nombre) y el perfil por su nombre.
+  - Las salidas bloqueadas se guardan como lista de nombres de salida.
+  - Al guardar un piso, los elementos se reemplazan completos y los ambientes se sincronizan por
+    nombre. Así un escenario no pierde sus ocupaciones cuando se corrige un muro.
+- **Consecuencias:**
+  - Los nombres de ambiente son únicos en cada piso; la base lo exige con una restricción.
+  - Renombrar o eliminar un ambiente elimina sus ocupaciones.
+  - Las salidas deben tener nombre para poder bloquearlas. El editor (Hito 2) las nombrará solo,
+    como «Salida 1», «Salida 2», etc.
+- **Alternativa:** ids estables (UUID) en el dominio. Son más robustos frente a renombres, pero
+  agregan complejidad que hoy no hace falta.
+
+## ADR-009: cifrado opcional detrás de una fábrica de motores
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (implementación del cifrado pendiente)
+- **Decisión:** `Database.open(path, engine_factory=...)` recibe un `EngineFactory`. Hoy se usa
+  `plain_sqlite_engine`. Para cifrar bastará una fábrica que cree el motor con SQLCipher (por
+  ejemplo, `sqlcipher3` mediante `creator=`) y ejecute `PRAGMA key`. No hay que tocar los
+  repositorios.
+- **Pendiente:** elegir el paquete de SQLCipher para Windows y decidir cómo pedir y guardar la
+  clave. Esto se haría en el Hito 6, si se prioriza.
+
+## ADR-010: perfiles por defecto en YAML con fuentes
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - El catálogo inicial vive en `resources/profiles/perfiles_por_defecto.yaml`, con la fuente de
+    cada valor y la marca `provisional`. El cargador rechaza perfiles a los que les falte la
+    fuente de algún valor.
+  - Al abrir la base se agregan los perfiles que falten, sin sobrescribir los que el usuario haya
+    editado.
+- **Consecuencias:** los valores se corrigen sin tocar código. El informe (Hito 4) podrá advertir
+  cuando se usen perfiles provisionales.
