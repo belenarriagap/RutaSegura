@@ -185,3 +185,71 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
   desincronicen.
 - **Consecuencia:** basta para planos de cientos de elementos. Si un plano muy grande se pone
   lento, se optimiza el redibujado.
+
+## ADR-015: Dijkstra en Python puro, grilla sellada y exterior por inundación
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - **Campo de distancia:** Dijkstra multiorigen con `heapq`. Fast Marching queda como alternativa
+    futura.
+  - **Construcción de la grilla:**
+    - los muros se trazan como líneas 4-conexas;
+    - las salidas que no están activas se sellan como muro;
+    - se inunda desde el borde para marcar el exterior.
+- **Motivo:** una grilla de 0.4 m de un local típico tiene entre 2 000 y 40 000 celdas. Dijkstra
+  tarda milisegundos y no suma dependencias (scipy).
+- **Consecuencia:** si el plano tiene un hueco al exterior que no es salida, el interior queda
+  marcado como exterior. Las personas de esos ambientes no tienen camino, y el sistema avisa con un
+  mensaje claro.
+
+## ADR-016: fuerza social suave y explícita
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (parámetros provisionales)
+- **Decisión:**
+  - aceleración por relajación hacia la velocidad deseada;
+  - repulsión exponencial entre personas y de los muros, con constantes más suaves que en Helbing
+    et al. (2000);
+  - corrección de superposición limitada a 5 cm por paso;
+  - se descartan los movimientos que entran en celdas no transitables (con deslizamiento por x o
+    por y).
+- **Alternativa:** integrador implícito, o subpasos con las constantes originales. Es más costoso y
+  no hace falta para el objetivo del producto.
+- **Calibración:** se hará en RF11 (Hito 5).
+
+## ADR-017: congestión medida solo con personas en movimiento
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** en la primera versión, el cuello de botella más grave era un aula pequeña llena de
+  niños esperando su tiempo de reacción.
+- **Decisión:**
+  - el mapa de calor y los cuellos de botella se calculan con la densidad de las personas en
+    movimiento;
+  - la velocidad sigue usando la densidad de todos los presentes, porque quienes esperan también
+    estorban el paso.
+
+## ADR-018: trayectorias en .npz con float32
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - cada corrida guarda un `.npz` comprimido con las posiciones cada 0.5 s (float32), el estado, la
+    curva, el mapa de calor y los cuellos de botella;
+  - SQLite solo guarda el resumen y la ruta del archivo (CLAUDE.md §5.3).
+- **Consecuencias:**
+  - 1000 agentes durante 10 minutos ocupan unos 10 MB sin comprimir;
+  - el redondeo a float32 puede dejar en el archivo a un agente justo sobre el borde de una celda
+    vecina. Solo afecta al dibujo; el motor trabaja en float64.
+
+## ADR-019: un único «Escenario base» hasta el Hito 5
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (temporal)
+- **Decisión:** cada proyecto tiene por ahora un solo escenario, con la ocupación del paso 4 y la
+  semilla del paso 6. Los escenarios «qué pasa si» (RF10) y el comparador llegan en el Hito 5, y el
+  modelo de datos ya los permite.
+
+## ADR-020: tareas largas con QRunnable + señales
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:** `BackgroundJob` ejecuta la función en el `QThreadPool` y emite `progress`, `done`,
+  `failed` y `cancelled`. La cancelación es cooperativa (`threading.Event`, que el motor revisa cada
+  10 pasos).
+- **Alternativa:** subclase de `QThread`. Tiene más código repetido y el mismo efecto.

@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 2 (visión y editor) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 3 (navegación y simulación) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 
@@ -76,6 +76,8 @@ docs/            CHANGELOG, decisiones (ADR)
 - [docs/decisiones.md](docs/decisiones.md): decisiones de diseño (ADR).
 - [docs/perfiles.md](docs/perfiles.md): perfiles de personas por defecto y sus fuentes.
 - [docs/formato_etiquetas.md](docs/formato_etiquetas.md): cómo etiquetar planos reales para evaluar la visión.
+- [docs/parametros_simulacion.md](docs/parametros_simulacion.md): parámetros del modelo de movimiento (provisionales).
+- [docs/rendimiento.md](docs/rendimiento.md): benchmarks del motor y del render.
 - [CLAUDE.md](CLAUDE.md): especificación completa del proyecto.
 
 ## Base de datos
@@ -100,4 +102,10 @@ uv run python scripts/eval_vision.py --synthetic 20
 
 ```bash
 uv run python scripts/eval_vision.py --dataset planos_etiquetados --overlays control/
+```
+
+## Rendimiento
+
+```bash
+uv run pytest tests/benchmarks -s
 ```

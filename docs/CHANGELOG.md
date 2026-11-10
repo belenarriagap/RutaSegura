@@ -4,6 +4,61 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Hito 3: navegación y simulación (2026-11-10)
+
+#### Agregado
+- **Grilla de navegación de 0.4 m** (`engines/navigation/grid.py`):
+  - los muros cortan la diagonal;
+  - las salidas bloqueadas o sin confirmar se sellan;
+  - las zonas seguras interiores son destinos de evacuación;
+  - lo conectado con el borde se marca como exterior.
+- **Campo de distancia:** Dijkstra multiorigen con 8 vecinos, costo √2 en diagonal y sin cortar
+  esquinas.
+- **Campo de direcciones suavizado.**
+- **Distancia a muros con su gradiente.**
+- **A\*** para agentes con destino propio.
+- **Detección automática de ambientes:** espacios cerrados por muros, puertas y salidas.
+- **Motor de agentes** (`engines/simulation/`):
+  - el estado se guarda en arrays NumPy;
+  - fuerza social simplificada, con vecinos buscados por hash espacial vectorizado;
+  - velocidad según densidad, tiempo de reacción lognormal y corrección de superposición;
+  - el paso de tiempo es fijo, el progreso se informa y se puede cancelar.
+- **Métricas:**
+  - tiempo total y tiempo por salida;
+  - curva de evacuados;
+  - mapa de calor;
+  - ranking de cuellos de botella (densidad alta sostenida de personas en movimiento).
+- **Reproducibilidad (RNF07):** una prueba exige resultados idénticos bit a bit con la misma
+  semilla.
+- **Benchmarks** con 100, 300, 500 y 1000 agentes. Con 500 agentes, el motor da unos 470 pasos/s
+  (la meta es 20) y el render unos 270 cuadros/s. Detalle en `docs/rendimiento.md`.
+- **Trayectorias y arrays de resultado** en un `.npz` comprimido (`data/trajectories.py`). SQLite
+  guarda el resumen y las observaciones de congestión.
+- **`SimulationService`:**
+  - escenario base con semilla;
+  - validaciones con mensajes claros;
+  - ejecución, guardado y recuperación de la última corrida;
+  - cada cuello de botella se describe en palabras (por ejemplo, «junto a "Salida 1" de "Aula 2"»).
+- **Paso 4, ambientes y ocupantes (RF05):**
+  - detección automática de ambientes;
+  - dibujo de polígonos (clic por vértice y doble clic para cerrar);
+  - tabla con nombre, uso, área y personas por perfil, con el total.
+- **Paso 6, simular (RF07, RF08):**
+  - la simulación corre en segundo plano, con barra de progreso y botón cancelar;
+  - la semilla es editable;
+  - visor con reproducir y pausar, velocidad de 0.5× a 8×, línea de tiempo y mapa de calor;
+  - panel con los resultados y los cuellos de botella.
+- **Documentación:** `docs/parametros_simulacion.md`, con los parámetros provisionales y sus
+  fuentes.
+
+#### Cambiado
+- `CellType` tiene los nuevos valores `SAFE_ZONE` y `OUTSIDE`.
+- `SimulationResult` agrega campos nuevos:
+  - totales de agentes;
+  - si la evacuación terminó;
+  - origen y tamaño de celda del mapa de calor.
+- Nueva dataclass `Trajectories` en el dominio.
+
 ### Hito 2: visión y editor (2026-11-10)
 
 #### Agregado
