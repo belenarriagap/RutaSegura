@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 1 (datos) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 2 (visión y editor) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 
@@ -75,6 +75,7 @@ docs/            CHANGELOG, decisiones (ADR)
 - [docs/CHANGELOG.md](docs/CHANGELOG.md): cambios por hito.
 - [docs/decisiones.md](docs/decisiones.md): decisiones de diseño (ADR).
 - [docs/perfiles.md](docs/perfiles.md): perfiles de personas por defecto y sus fuentes.
+- [docs/formato_etiquetas.md](docs/formato_etiquetas.md): cómo etiquetar planos reales para evaluar la visión.
 - [CLAUDE.md](CLAUDE.md): especificación completa del proyecto.
 
 ## Base de datos
@@ -87,4 +88,16 @@ Para crear una migración después de cambiar `rutasegura/data/models.py`:
 
 ```bash
 uv run alembic revision --autogenerate -m "descripcion" --rev-id 0002
+```
+
+## Evaluar la detección de muros y puertas
+
+La meta es ≥ 85 % de precisión y de exhaustividad.
+
+```bash
+uv run python scripts/eval_vision.py --synthetic 20
+```
+
+```bash
+uv run python scripts/eval_vision.py --dataset planos_etiquetados --overlays control/
 ```

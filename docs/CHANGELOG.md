@@ -4,6 +4,58 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Hito 2: visión y editor (2026-11-10)
+
+#### Agregado
+- **Carga de planos (RF01)** en `engines/vision/images.py`:
+  - acepta JPG, PNG, BMP, TIFF y PDF; el PDF se rasteriza a 200 dpi, con un límite de 6000 px;
+  - admite rutas con tildes y eñes.
+- **Rectificación de perspectiva:** el usuario marca 4 esquinas, en cualquier orden.
+- **Detección automática (RF02)** en `engines/vision/pipeline.py`:
+  1. umbral adaptativo;
+  2. máscara de trazos gruesos;
+  3. esqueleto (Zhang-Suen);
+  4. HoughLinesP;
+  5. fusión de segmentos colineales con reajuste por mínimos cuadrados;
+  6. unión de esquinas.
+- **Detección de puertas:** son los tramos vacíos a lo largo de cada muro, también los que están
+  junto a una esquina. La confianza aumenta si se encuentra el arco de apertura.
+- **Salidas propuestas:** son los vanos que están en el contorno exterior. Quedan
+  **sin confirmar** hasta que el usuario las acepte.
+- **Escala (RF04):** se define con dos puntos y una medida real en metros.
+- **Generador de planos sintéticos** (`tests/fixtures/synthetic_plans.py`):
+  - el resultado es reproducible con una semilla;
+  - incluye ruido, desenfoque, rotación, iluminación desigual, textos, cotas y mobiliario.
+- **Script de evaluación** `scripts/eval_vision.py`:
+  - funciona con planos sintéticos y con planos reales etiquetados;
+  - puede guardar imágenes de control;
+  - el formato de las etiquetas está en `docs/formato_etiquetas.md`.
+- **Resultado en 40 planos sintéticos:**
+  - muros: 100 % de precisión y 99.9 % de exhaustividad;
+  - vanos: 100 % de precisión y 98.9 % de exhaustividad.
+- **Editor (RF03):**
+  - dibuja muros, puertas, salidas, escaleras, obstáculos y zonas seguras;
+  - selecciona y borra elementos;
+  - confirma las salidas propuestas;
+  - deshace y rehace con `QUndoStack`;
+  - zoom con la rueda y desplazamiento con el botón central;
+  - capas visibles;
+  - líneas rectas con Mayús;
+  - los elementos de baja confianza se ven en naranja discontinuo.
+- **Asistente, pasos 1 a 3:** cargar plano, escala y corregir plano. Al entrar al paso 3 la
+  detección se ejecuta sola, en segundo plano.
+- **Proyectos:**
+  - se pueden crear y abrir;
+  - se guardan automáticamente al cambiar de paso y al cerrar, y también con Ctrl+S;
+  - la imagen procesada se guarda en `%LOCALAPPDATA%\RutaSegura\planos\`.
+- **Servicios de aplicación:** `ProjectService` y `PlanImportService`. Los errores llegan al
+  usuario como mensajes claros (`UserFacingError`).
+
+#### Cambiado
+- `Exit` y `Stair` tienen el nuevo campo `confirmed`. Se guarda como `confirmada` en las
+  propiedades GeoJSON.
+- `MainWindow` ahora recibe `AppServices`. `__main__` abre la base de datos local al iniciar.
+
 ### Hito 1: datos (2026-11-10)
 
 #### Agregado

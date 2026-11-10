@@ -131,3 +131,57 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
     editado.
 - **Consecuencias:** los valores se corrigen sin tocar código. El informe (Hito 4) podrá advertir
   cuando se usen perfiles provisionales.
+
+## ADR-011: muros por esqueleto + Hough y puertas por tramos vacíos
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - **Máscara de muros:** se aplica una apertura morfológica con un núcleo de 0.6 × el grosor
+    estimado. Así desaparecen el texto, las cotas, los arcos y el mobiliario de trazo fino.
+  - **Ejes:** se calcula el esqueleto con Zhang-Suen (implementado en NumPy, sin opencv-contrib) y
+    se aplica HoughLinesP.
+  - **Agrupación:** los segmentos se agrupan por recta y luego cada recta se reajusta por mínimos
+    cuadrados totales.
+  - **Vanos:** a lo largo de cada recta, el tramo más largo sin muro en la máscara. Esto da el ancho
+    real del vano, que RF06 necesita.
+  - **Salidas:** son los vanos que están sobre el contorno exterior del edificio.
+- **Alternativas descartadas:**
+  - Hough sobre la máscara rellena: da muchas paralelas por cada muro.
+  - Segmentación con YOLO u otra red: queda como extra opcional según la especificación.
+  - Detectar el arco como condición obligatoria: muchos planos no dibujan arcos. El arco solo sube
+    la confianza.
+- **Limitaciones conocidas:**
+  - Muros curvos.
+  - Planos con relleno de trama (hatching).
+  - Muros más delgados que el texto en negrita.
+  - Las escaleras no se detectan; se marcan a mano.
+
+## ADR-012: salidas propuestas y confirmación explícita
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** la §5.1 pide que el sistema proponga las salidas y que el usuario las confirme.
+- **Decisión:**
+  - `Exit.confirmed` y `Stair.confirmed`: lo detectado entra con `False` y lo dibujado a mano, con
+    `True`.
+  - El editor muestra las propuestas en línea discontinua, con «?» y un aviso.
+  - La simulación (Hito 3) usará solo las salidas confirmadas.
+
+## ADR-013: guardado automático en lugar de preguntar
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:** el plano se guarda solo al cambiar de paso, al abrir o crear otro proyecto y al
+  cerrar la aplicación. También se puede guardar con Ctrl+S.
+- **Motivo:** los usuarios no son técnicos (RNF03). El diálogo «¿Guardar cambios?» es una fuente
+  frecuente de pérdida de trabajo, y el deshacer ya protege contra errores de edición.
+- **Consecuencia:** cargar un plano nuevo reemplaza el anterior apenas se cambia de paso.
+
+## ADR-014: el editor reemplaza el plano completo en cada comando
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:** cada edición crea un `FloorPlan` nuevo (el dominio es inmutable) y el
+  `QUndoCommand` guarda el plano anterior y el nuevo. La escena se vuelve a dibujar completa.
+- **Alternativa:** un comando por tipo de operación con cambios mínimos en la escena. Es más
+  eficiente en planos enormes, pero tiene más código y más riesgo de que la escena y el modelo se
+  desincronicen.
+- **Consecuencia:** basta para planos de cientos de elementos. Si un plano muy grande se pone
+  lento, se optimiza el redibujado.
