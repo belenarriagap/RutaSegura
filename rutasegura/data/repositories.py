@@ -222,14 +222,14 @@ class FloorRepository:
             add(
                 ElementType.EXIT,
                 segment_to_geojson(exit_.segment),
-                {"nombre": exit_.name},
+                {"nombre": exit_.name, "confirmada": exit_.confirmed},
                 width(exit_.segment.length),
             )
         for stair in plan.stairs:
             add(
                 ElementType.STAIR,
                 polygon_to_geojson(stair.area),
-                {"conecta_con_nivel": stair.connects_to_level},
+                {"conecta_con_nivel": stair.connects_to_level, "confirmada": stair.confirmed},
             )
         for obstacle in plan.obstacles:
             add(ElementType.OBSTACLE, polygon_to_geojson(obstacle.area), {})
@@ -257,11 +257,21 @@ class FloorRepository:
                         Door(segment_from_geojson(geometry), float(props.get("confianza", 1.0)))
                     )
                 case ElementType.EXIT:
-                    exits.append(Exit(segment_from_geojson(geometry), str(props.get("nombre", ""))))
+                    exits.append(
+                        Exit(
+                            segment_from_geojson(geometry),
+                            str(props.get("nombre", "")),
+                            bool(props.get("confirmada", True)),
+                        )
+                    )
                 case ElementType.STAIR:
                     level = props.get("conecta_con_nivel")
                     stairs.append(
-                        Stair(polygon_from_geojson(geometry), None if level is None else int(level))
+                        Stair(
+                            polygon_from_geojson(geometry),
+                            None if level is None else int(level),
+                            bool(props.get("confirmada", True)),
+                        )
                     )
                 case ElementType.OBSTACLE:
                     obstacles.append(Obstacle(polygon_from_geojson(geometry)))

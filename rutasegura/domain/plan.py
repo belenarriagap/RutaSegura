@@ -42,18 +42,28 @@ class Door:
 
 @dataclass(frozen=True, slots=True)
 class Exit:
-    """Salida al exterior o a zona segura; siempre confirmada por el usuario."""
+    """Salida al exterior o a zona segura.
+
+    Si la propone la detección automática, ``confirmed`` es falso hasta que el usuario la acepta
+    en el editor. Solo las salidas confirmadas se usan en la simulación.
+    """
 
     segment: Segment
     name: str = ""
+    confirmed: bool = True
 
 
 @dataclass(frozen=True, slots=True)
 class Stair:
-    """Escalera; ``connects_to_level`` es el piso al que lleva (RF12)."""
+    """Escalera; ``connects_to_level`` es el piso al que lleva (RF12).
+
+    Igual que las salidas, una escalera propuesta queda sin confirmar hasta que el usuario
+    la acepta.
+    """
 
     area: Polygon
     connects_to_level: int | None = None
+    confirmed: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +108,11 @@ class FloorPlan:
     def __post_init__(self) -> None:
         if self.scale_m_per_px is not None and self.scale_m_per_px <= 0:
             raise ValueError("La escala debe ser positiva.")
+
+    @property
+    def has_pending_proposals(self) -> bool:
+        """Indica si quedan salidas o escaleras propuestas sin confirmar."""
+        return any(not e.confirmed for e in self.exits) or any(not s.confirmed for s in self.stairs)
 
     @property
     def is_scaled(self) -> bool:
