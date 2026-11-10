@@ -51,3 +51,5 @@ class CellType(IntEnum):
     DOOR = 3
     EXIT = 4
     STAIR = 5
+    SAFE_ZONE = 6
+    OUTSIDE = 7  # fuera del edificio (no transitable)

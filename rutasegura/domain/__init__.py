@@ -11,6 +11,7 @@ from rutasegura.domain.results import (
     Observation,
     SimulationResult,
     SimulationSummary,
+    Trajectories,
 )
 from rutasegura.domain.scenario import RealDrill, Scenario
 
@@ -39,6 +40,7 @@ __all__ = [
     "SimulationResult",
     "SimulationSummary",
     "Stair",
+    "Trajectories",
     "UseType",
     "Wall",
 ]
