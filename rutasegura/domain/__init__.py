@@ -1,0 +1,36 @@
+"""Estructuras de dominio compartidas por todas las capas (dataclasses, enums, arrays)."""
+
+from rutasegura.domain.agents import AgentArrays
+from rutasegura.domain.enums import AgentStatus, CellType, ElementType, ObservationType, UseType
+from rutasegura.domain.geometry import Point, Polygon, Segment
+from rutasegura.domain.people import Occupancy, PersonProfile
+from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, Room, SafeZone, Stair, Wall
+from rutasegura.domain.results import Bottleneck, Observation, SimulationResult
+from rutasegura.domain.scenario import RealDrill, Scenario
+
+__all__ = [
+    "AgentArrays",
+    "AgentStatus",
+    "Bottleneck",
+    "CellType",
+    "Door",
+    "ElementType",
+    "Exit",
+    "FloorPlan",
+    "Observation",
+    "ObservationType",
+    "Obstacle",
+    "Occupancy",
+    "PersonProfile",
+    "Point",
+    "Polygon",
+    "RealDrill",
+    "Room",
+    "SafeZone",
+    "Scenario",
+    "Segment",
+    "SimulationResult",
+    "Stair",
+    "UseType",
+    "Wall",
+]
