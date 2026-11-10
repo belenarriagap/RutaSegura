@@ -5,7 +5,116 @@ Para traducir: crear otra instancia de ``UiTexts`` y elegirla al iniciar la apli
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectTexts:
+    """Crear, abrir y guardar proyectos."""
+
+    menu_new: str = "&Nuevo proyecto…"
+    menu_open: str = "&Abrir proyecto…"
+    menu_save: str = "&Guardar"
+    new_title: str = "Nuevo proyecto"
+    open_title: str = "Abrir proyecto"
+    name: str = "Nombre del local:"
+    use: str = "Tipo de local:"
+    address: str = "Dirección (opcional):"
+    use_labels: tuple[tuple[str, str], ...] = (
+        ("educacion", "Educación (colegio, instituto)"),
+        ("oficinas", "Oficinas"),
+        ("comercio", "Comercio (tienda)"),
+    )
+    name_required: str = "Escriba el nombre del local."
+    no_projects: str = "Todavía no hay proyectos. Cree uno nuevo."
+    saved: str = "Cambios guardados."
+    opened: str = "Proyecto abierto: {name}"
+    welcome_new: str = "Crear un proyecto nuevo"
+    welcome_open: str = "Abrir un proyecto existente"
+    error_title: str = "No se pudo completar la acción"
+
+
+@dataclass(frozen=True, slots=True)
+class WizardTexts:
+    """Pasos 1 a 3 del asistente."""
+
+    load_title: str = "Paso 1. Cargar plano"
+    load_help: str = (
+        "Elija una foto o un PDF del plano de su local. Si la foto está torcida, puede "
+        "enderezarla marcando las 4 esquinas del plano."
+    )
+    choose_file: str = "Elegir archivo…"
+    file_dialog_title: str = "Elegir plano"
+    file_filter: str = "Planos ({patterns})"
+    no_file: str = "Todavía no eligió un plano."
+    page_label: str = "Página del PDF:"
+    straighten: str = "Enderezar foto"
+    straighten_help: str = (
+        "Haga clic en las 4 esquinas del plano, en cualquier orden. Marcadas: {count} de 4."
+    )
+    straighten_undo: str = "Quitar enderezado"
+    next: str = "Siguiente ›"
+    scale_title: str = "Paso 2. Escala"
+    scale_help: str = (
+        "Dibuje una línea sobre una medida que conozca (por ejemplo, una cota del plano o el "
+        "ancho de una puerta) y escriba cuántos metros mide."
+    )
+    scale_meters: str = "La línea mide (metros):"
+    scale_apply: str = "Aplicar escala"
+    scale_draw_first: str = "Primero dibuje la línea sobre el plano."
+    scale_result: str = "Escala definida: 1 metro = {px_per_m:.1f} píxeles."
+    scale_missing: str = (
+        "Todavía no hay escala. Sin escala no se pueden calcular metros, aforo ni anchos."
+    )
+    editor_title: str = "Paso 3. Corregir plano"
+    editor_help: str = (
+        "Revise lo que encontró el sistema. Los elementos en naranja tienen baja confianza y las "
+        "salidas en línea discontinua son propuestas: selecciónelas y pulse «Confirmar salida»."
+    )
+    detect: str = "Detectar automáticamente"
+    detecting: str = "Buscando muros y puertas… esto puede tardar unos segundos."
+    detect_done: str = (
+        "Se encontraron {walls} muros, {doors} puertas y {exits} salidas propuestas. "
+        "Revise y corrija lo necesario."
+    )
+    no_image: str = "Primero cargue un plano en el paso 1."
+    step_not_ready: str = "Este paso estará disponible en el próximo hito."
+
+
+@dataclass(frozen=True, slots=True)
+class EditorTexts:
+    """Editor de planos."""
+
+    tool_select: str = "Seleccionar"
+    tool_wall: str = "Muro"
+    tool_door: str = "Puerta"
+    tool_exit: str = "Salida"
+    tool_stair: str = "Escalera"
+    tool_obstacle: str = "Obstáculo"
+    tool_safe_zone: str = "Zona segura"
+    delete: str = "Borrar"
+    confirm_exit: str = "Confirmar salida"
+    undo: str = "Deshacer"
+    redo: str = "Rehacer"
+    fit: str = "Ver todo"
+    layers: str = "Capas visibles"
+    layer_background: str = "Plano de fondo"
+    layer_walls: str = "Muros"
+    layer_doors: str = "Puertas"
+    layer_exits: str = "Salidas"
+    layer_stairs: str = "Escaleras"
+    layer_obstacles: str = "Obstáculos"
+    layer_safe_zones: str = "Zonas seguras"
+    hint_select: str = "Haga clic en un elemento para seleccionarlo; Supr lo borra."
+    hint_segment: str = "Arrastre para dibujar. Mantenga Mayús para líneas rectas."
+    hint_area: str = "Arrastre para dibujar un rectángulo."
+    hint_zoom: str = "Rueda del mouse: acercar o alejar. Botón central: desplazar."
+    pending_exits: str = "Hay {count} salida(s) propuesta(s) por confirmar."
+    exit_name: str = "Salida {number}"
+    cmd_add: str = "Agregar {what}"
+    cmd_delete: str = "Borrar {count} elemento(s)"
+    cmd_confirm: str = "Confirmar {count} salida(s)"
+    cmd_detect: str = "Detección automática"
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +127,7 @@ class UiTexts:
     welcome_body: str
     wizard_steps: tuple[str, ...]
     menu_file: str
+    menu_edit: str
     menu_help: str
     action_quit: str
     action_about: str
@@ -25,6 +135,9 @@ class UiTexts:
     about_body: str
     status_ready: str
     legal_disclaimer: str
+    project: ProjectTexts = field(default_factory=ProjectTexts)
+    wizard: WizardTexts = field(default_factory=WizardTexts)
+    editor: EditorTexts = field(default_factory=EditorTexts)
 
 
 SPANISH = UiTexts(
@@ -45,6 +158,7 @@ SPANISH = UiTexts(
         "7. Informe",
     ),
     menu_file="&Archivo",
+    menu_edit="&Editar",
     menu_help="A&yuda",
     action_quit="&Salir",
     action_about="&Acerca de RutaSegura",
