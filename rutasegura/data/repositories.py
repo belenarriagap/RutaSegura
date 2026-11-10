@@ -159,6 +159,7 @@ class FloorRepository:
                 record = RoomRecord(name=room.name)
                 floor.rooms.append(record)
             record.use = room.use
+            record.category = room.category
             record.polygon = geometry_dumps(polygon_to_geojson(room.area))
             record.area_m2 = plan.area_m2(room.area) if plan.is_scaled else None
         for removed in existing.values():
@@ -280,7 +281,12 @@ class FloorRepository:
                         SafeZone(polygon_from_geojson(geometry), str(props.get("nombre", "")))
                     )
         rooms = tuple(
-            Room(r.name, UseType(r.use), polygon_from_geojson(geometry_loads(r.polygon)))
+            Room(
+                r.name,
+                UseType(r.use),
+                polygon_from_geojson(geometry_loads(r.polygon)),
+                r.category,
+            )
             for r in floor.rooms
         )
         return FloorPlan(

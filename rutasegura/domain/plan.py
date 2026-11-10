@@ -83,11 +83,16 @@ class SafeZone:
 
 @dataclass(frozen=True, slots=True)
 class Room:
-    """Ambiente con nombre y uso."""
+    """Ambiente con nombre, uso y categoría.
+
+    ``category`` es la actividad dentro del uso (aula, taller, oficina, tienda, pasillo…) según
+    las reglas normativas; vacío = categoría por defecto del uso.
+    """
 
     name: str
     use: UseType
     area: Polygon
+    category: str = ""
 
 
 @dataclass(frozen=True, slots=True)

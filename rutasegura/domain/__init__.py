@@ -3,6 +3,7 @@
 from rutasegura.domain.agents import AgentArrays
 from rutasegura.domain.enums import AgentStatus, CellType, ElementType, ObservationType, UseType
 from rutasegura.domain.geometry import Point, Polygon, Segment
+from rutasegura.domain.norms import NormEvaluation, NormRule, RoomCapacity
 from rutasegura.domain.people import Occupancy, PersonProfile
 from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, Room, SafeZone, Stair, Wall
 from rutasegura.domain.project import Project
@@ -24,6 +25,8 @@ __all__ = [
     "ElementType",
     "Exit",
     "FloorPlan",
+    "NormEvaluation",
+    "NormRule",
     "Observation",
     "ObservationType",
     "Obstacle",
@@ -34,6 +37,7 @@ __all__ = [
     "Project",
     "RealDrill",
     "Room",
+    "RoomCapacity",
     "SafeZone",
     "Scenario",
     "Segment",

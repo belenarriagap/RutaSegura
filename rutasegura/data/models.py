@@ -117,6 +117,7 @@ class RoomRecord(Base):
     )
     name: Mapped[str] = mapped_column("nombre", String(200))
     use: Mapped[str] = mapped_column("uso", String(30))
+    category: Mapped[str] = mapped_column("categoria", String(40), default="", server_default="")
     polygon: Mapped[str] = mapped_column("poligono", Text)  # GeoJSON Polygon
     area_m2: Mapped[float | None] = mapped_column(Float)
 
