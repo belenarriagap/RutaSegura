@@ -1,0 +1,62 @@
+# Perfiles de personas por defecto (catálogo inicial de la tabla perfil_persona).
+#
+# TODOS LOS VALORES SON PROVISIONALES: hay que contrastarlos con la fuente y calibrarlos con un
+# simulacro real (RF11). El tiempo de reacción (premovimiento) es el parámetro más influyente.
+# Detalle y bibliografía: docs/perfiles.md
+#
+# Campos:
+#   nombre, vel_max_mps, reaccion_media_s, reaccion_desv_s, radio_m
+#   provisional: true mientras no se verifique con la fuente
+#   fuentes: una referencia o nota por cada valor
+
+perfiles:
+  - nombre: adulto
+    vel_max_mps: 1.34
+    reaccion_media_s: 30.0
+    reaccion_desv_s: 10.0
+    radio_m: 0.25
+    provisional: true
+    fuentes:
+      vel_max_mps: >-
+        Velocidad media de marcha libre en terreno plano; Weidmann, U. (1993). Transporttechnik
+        der Fussgänger. IVT, ETH Zürich. VERIFICAR.
+      reaccion_media_s: >-
+        Provisional. Orden de magnitud para ocupantes despiertos con alarma; consultar BSI PD
+        7974-6 (tiempos de premovimiento por categoría de ocupación) y calibrar con simulacro.
+      reaccion_desv_s: Provisional; calibrar con simulacro (RF11).
+      radio_m: >-
+        Helbing, Farkas y Vicsek (2000), Nature 407: radios de agentes entre 0.25 y 0.35 m.
+        VERIFICAR.
+
+  - nombre: niño
+    vel_max_mps: 1.0
+    reaccion_media_s: 20.0
+    reaccion_desv_s: 10.0
+    radio_m: 0.20
+    provisional: true
+    fuentes:
+      vel_max_mps: >-
+        Provisional. Literatura sugerida: Larusdottir, A. R. y Dederichs, A. S. (2012).
+        Evacuation of children: movement on stairs and on horizontal plane. Fire Technology 48.
+        VERIFICAR según edad (inicial, primaria, secundaria).
+      reaccion_media_s: >-
+        Provisional. En colegios los niños suelen reaccionar ante la orden del docente; calibrar
+        con simulacro (RF11).
+      reaccion_desv_s: Provisional; calibrar con simulacro (RF11).
+      radio_m: Provisional; menor que el adulto por menor ancho de hombros. VERIFICAR.
+
+  - nombre: movilidad reducida
+    vel_max_mps: 0.8
+    reaccion_media_s: 45.0
+    reaccion_desv_s: 15.0
+    radio_m: 0.35
+    provisional: true
+    fuentes:
+      vel_max_mps: >-
+        Provisional. Literatura sugerida: Boyce, K. E., Shields, T. J. y Silcock, G. W. H.
+        (1999). Toward the characterization of building occupancies for fire safety
+        engineering: capabilities of disabled people moving horizontally and on an incline.
+        Fire Technology 35(1). VERIFICAR.
+      reaccion_media_s: Provisional; suele ser mayor que la de un adulto sin limitaciones.
+      reaccion_desv_s: Provisional; calibrar con simulacro (RF11).
+      radio_m: Provisional; considera el ancho de una silla de ruedas (~0.7 m). VERIFICAR.
