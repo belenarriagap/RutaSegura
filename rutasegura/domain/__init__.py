@@ -5,7 +5,13 @@ from rutasegura.domain.enums import AgentStatus, CellType, ElementType, Observat
 from rutasegura.domain.geometry import Point, Polygon, Segment
 from rutasegura.domain.people import Occupancy, PersonProfile
 from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, Room, SafeZone, Stair, Wall
-from rutasegura.domain.results import Bottleneck, Observation, SimulationResult
+from rutasegura.domain.project import Project
+from rutasegura.domain.results import (
+    Bottleneck,
+    Observation,
+    SimulationResult,
+    SimulationSummary,
+)
 from rutasegura.domain.scenario import RealDrill, Scenario
 
 __all__ = [
@@ -24,12 +30,14 @@ __all__ = [
     "PersonProfile",
     "Point",
     "Polygon",
+    "Project",
     "RealDrill",
     "Room",
     "SafeZone",
     "Scenario",
     "Segment",
     "SimulationResult",
+    "SimulationSummary",
     "Stair",
     "UseType",
     "Wall",

@@ -104,7 +104,7 @@ class TestPeopleAndScenario:
             "Base",
             seed=42,
             occupancies=(Occupancy("Aula 1", "niño", 30), Occupancy("Aula 1", "adulto", 1)),
-            blocked_exits=frozenset({1}),
+            blocked_exits=frozenset({"Salida 2"}),
         )
         assert scenario.total_occupants == 31
         with pytest.raises(ValueError, match="semilla"):

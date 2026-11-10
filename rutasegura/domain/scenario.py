@@ -13,12 +13,13 @@ class Scenario:
     """Escenario «qué pasa si»: ocupación, salidas bloqueadas y semilla.
 
     Toda la aleatoriedad de la simulación sale de ``numpy.random.default_rng(seed)``.
+    ``blocked_exits`` contiene los nombres de las salidas bloqueadas.
     """
 
     name: str
     seed: int
     occupancies: tuple[Occupancy, ...] = field(default_factory=tuple)
-    blocked_exits: frozenset[int] = field(default_factory=frozenset)
+    blocked_exits: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         if self.seed < 0:

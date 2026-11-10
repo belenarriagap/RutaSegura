@@ -29,11 +29,15 @@ class PersonProfile:
 
 @dataclass(frozen=True, slots=True)
 class Occupancy:
-    """Cantidad de personas de un perfil en un ambiente."""
+    """Cantidad de personas de un perfil en un ambiente.
+
+    El ambiente se identifica por su nombre y el nivel del piso; el perfil, por su nombre.
+    """
 
     room_name: str
     profile_name: str
     count: int
+    level: int = 0
 
     def __post_init__(self) -> None:
         if self.count < 0:

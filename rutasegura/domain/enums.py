@@ -16,6 +16,7 @@ class ElementType(StrEnum):
     EXIT = "salida"
     STAIR = "escalera"
     OBSTACLE = "obstaculo"
+    SAFE_ZONE = "zona_segura"
 
 
 class UseType(StrEnum):
