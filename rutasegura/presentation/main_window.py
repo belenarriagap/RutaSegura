@@ -1,4 +1,4 @@
-"""Ventana principal: asistente paso a paso (pasos 1–3 activos desde el Hito 2)."""
+"""Ventana principal: asistente paso a paso (pasos 1–4 y 6 activos desde el Hito 3)."""
 
 from __future__ import annotations
 
@@ -27,14 +27,17 @@ from rutasegura.application.errors import UserFacingError
 from rutasegura.application.services import AppServices
 from rutasegura.domain.enums import UseType
 from rutasegura.domain.plan import FloorPlan
+from rutasegura.domain.scenario import Scenario
 from rutasegura.presentation.project_dialogs import NewProjectDialog, OpenProjectDialog
+from rutasegura.presentation.rooms_page import RoomsPage
+from rutasegura.presentation.simulation_page import SimulationPage
 from rutasegura.presentation.wizard_pages import EditorPage, LoadPlanPage, ScalePage
 from rutasegura.resources.texts import TEXTS, UiTexts
 
 Image = npt.NDArray[np.uint8]
 
-STEP_LOAD, STEP_SCALE, STEP_EDIT = 0, 1, 2
-ACTIVE_STEPS = (STEP_LOAD, STEP_SCALE, STEP_EDIT)
+STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_NORMS, STEP_SIMULATE = 0, 1, 2, 3, 4, 5
+ACTIVE_STEPS = (STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_SIMULATE)
 
 
 class MainWindow(QMainWindow):
@@ -51,6 +54,9 @@ class MainWindow(QMainWindow):
         self._image: Image | None = None
         self._image_dirty = False
         self._dirty = False
+        self._scenario: Scenario | None = None
+        self._scenario_dirty = False
+        self._project_use = UseType.EDUCATION
 
         self.setWindowTitle(texts.window_title)
         self.resize(1200, 780)
@@ -100,7 +106,18 @@ class MainWindow(QMainWindow):
         self.scale_page.scale_changed.connect(self._on_scale_changed)
         self.scale_page.next_requested.connect(lambda: self.go_to_step(STEP_EDIT))
         self.editor_page.editor.plan_changed.connect(self._on_plan_edited)
-        for page in (self.load_page, self.scale_page, self.editor_page):
+        self.rooms_page = RoomsPage(plans, self._texts.rooms, self._texts.project)
+        self.rooms_page.plan_changed.connect(self._on_plan_edited)
+        self.rooms_page.scenario_changed.connect(self._on_scenario_changed)
+        self.simulation_page = SimulationPage(self._services.simulations, self._texts.simulation)
+        self.simulation_page.scenario_changed.connect(self._on_scenario_changed)
+        for page in (
+            self.load_page,
+            self.scale_page,
+            self.editor_page,
+            self.rooms_page,
+            self.simulation_page,
+        ):
             page.error.connect(self.show_error)
 
     def _build_central(self) -> None:
@@ -121,6 +138,8 @@ class MainWindow(QMainWindow):
             self.load_page,
             self.scale_page,
             self.editor_page,
+            self.rooms_page,
+            self.simulation_page,
             self.pending_page,
         ):
             self.stack.addWidget(page)
@@ -201,8 +220,11 @@ class MainWindow(QMainWindow):
         plan = self._services.projects.load_floor(project_id) or FloorPlan()
         image = self._services.projects.load_floor_image(plan)
         self.project_id = project_id
+        self._project_use = project.use
         self._plan, self._image = plan, image
-        self._image_dirty = self._dirty = False
+        self._image_dirty = self._dirty = self._scenario_dirty = False
+        self._scenario = self._services.simulations.load_scenario(project_id)
+        self.simulation_page.set_run(self._services.simulations.last_run(project_id))
         self.load_page.set_image(image)
         self.scale_page.set_content(image, plan.scale_m_per_px)
         self.editor_page.set_content(plan, image)
@@ -213,22 +235,26 @@ class MainWindow(QMainWindow):
         self.go_to_step(STEP_EDIT if has_elements else STEP_LOAD)
 
     def save(self) -> bool:
-        """Guarda el plano actual. Devuelve ``False`` si no se pudo."""
+        """Guarda el plano y el escenario. Devuelve ``False`` si no se pudo."""
         if self.project_id is None:
             return True
         try:
             self._plan = self._services.projects.save_floor(
                 self.project_id, self._plan, self._image if self._image_dirty else None
             )
+            self._image_dirty = self._dirty = False
+            # el escenario referencia ambientes por nombre: se guarda después del plano
+            if self._scenario is not None and self._scenario_dirty:
+                self._services.simulations.save_scenario(self.project_id, self._scenario)
+                self._scenario_dirty = False
         except UserFacingError as exc:
             self.show_error(exc.message)
             return False
-        self._image_dirty = self._dirty = False
         self.statusBar().showMessage(self._texts.project.saved, 4000)
         return True
 
     def _save_if_dirty(self) -> bool:
-        return self.save() if self._dirty else True
+        return self.save() if self.is_dirty else True
 
     @property
     def plan(self) -> FloorPlan:
@@ -236,9 +262,14 @@ class MainWindow(QMainWindow):
         return self._plan
 
     @property
+    def scenario(self) -> Scenario | None:
+        """Escenario en edición."""
+        return self._scenario
+
+    @property
     def is_dirty(self) -> bool:
         """Hay cambios sin guardar."""
-        return self._dirty
+        return self._dirty or self._scenario_dirty
 
     # ----------------------------------------------------------------- pasos
     def go_to_step(self, step: int) -> None:
@@ -261,6 +292,20 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.editor_page)
             if self.editor_page.needs_detection():
                 self.editor_page.detect()
+        elif step == STEP_ROOMS and self._scenario is not None:
+            self.rooms_page.set_content(
+                self._plan,
+                self._image,
+                self._scenario,
+                self._services.simulations.profiles(),
+                self._project_use,
+            )
+            self.stack.setCurrentWidget(self.rooms_page)
+        elif step == STEP_SIMULATE and self._scenario is not None:
+            self.simulation_page.set_content(
+                self.project_id, self._plan, self._image, self._scenario
+            )
+            self.stack.setCurrentWidget(self.simulation_page)
         else:
             self.stack.setCurrentWidget(self.pending_page)
 
@@ -291,6 +336,9 @@ class MainWindow(QMainWindow):
         self._image_dirty = True
         self._plan = FloorPlan(level=self._plan.level)
         self._dirty = True
+        if self._scenario is not None and self._scenario.occupancies:
+            self._scenario = dataclasses.replace(self._scenario, occupancies=())
+            self._scenario_dirty = True
         self.editor_page.set_content(self._plan, image)
 
     def _on_scale_changed(self, scale: float) -> None:
@@ -302,6 +350,11 @@ class MainWindow(QMainWindow):
         if plan != self._plan:
             self._plan = plan
             self._dirty = True
+
+    def _on_scenario_changed(self, scenario: Scenario) -> None:
+        if scenario != self._scenario:
+            self._scenario = scenario
+            self._scenario_dirty = True
 
     # ----------------------------------------------------------------- varios
     def show_error(self, message: str) -> None:

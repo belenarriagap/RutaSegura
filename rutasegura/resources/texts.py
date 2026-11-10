@@ -118,6 +118,67 @@ class EditorTexts:
 
 
 @dataclass(frozen=True, slots=True)
+class RoomsTexts:
+    """Paso 4: ambientes y ocupantes."""
+
+    title: str = "Paso 4. Ambientes y ocupantes"
+    help: str = (
+        "Marque cada ambiente del local e indique cuántas personas de cada tipo hay en él "
+        "en el momento más concurrido. Puede detectarlos automáticamente o dibujarlos "
+        "haciendo clic en sus esquinas (doble clic para terminar)."
+    )
+    detect: str = "Detectar ambientes"
+    draw: str = "Dibujar ambiente"
+    delete: str = "Borrar ambiente"
+    name_template: str = "Ambiente {number}"
+    column_name: str = "Ambiente"
+    column_use: str = "Uso"
+    column_area: str = "Área (m²)"
+    total: str = "Total: {count} personas"
+    no_scale: str = "Primero defina la escala (paso 2): sin ella no se calculan las áreas."
+    detected: str = "Se agregaron {count} ambiente(s). Revise sus nombres."
+    nothing_detected: str = (
+        "No se encontraron ambientes cerrados nuevos. Revise que los muros y puertas estén "
+        "completos o dibújelos a mano."
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationTexts:
+    """Paso 6: simulación y visor."""
+
+    title: str = "Paso 6. Simular la evacuación"
+    help: str = (
+        "Simula un sismo: cada persona espera su tiempo de reacción y luego camina hacia la "
+        "salida más cercana. Con la misma semilla, el resultado es siempre el mismo."
+    )
+    seed: str = "Semilla:"
+    run: str = "Simular"
+    cancel: str = "Cancelar"
+    running: str = "Simulando… {percent:.0f} %"
+    cancelled: str = "Simulación cancelada."
+    play: str = "▶ Reproducir"
+    pause: str = "⏸ Pausa"
+    speed: str = "Velocidad:"
+    heatmap: str = "Mapa de calor"
+    time: str = "{now} / {end}"
+    evacuated: str = "Evacuados: {done} de {total}"
+    results_title: str = "Resultados"
+    total_time: str = "Tiempo total de evacuación: {time}"
+    incomplete: str = (
+        "Atención: después de {time} todavía quedaban {left} personas dentro. "
+        "Revise salidas y puertas."
+    )
+    per_exit: str = "{name}: {time}"
+    bottlenecks_title: str = "Cuellos de botella (del más grave al menos grave)"
+    no_bottlenecks: str = "No se detectaron zonas de congestión sostenida."
+    no_run: str = "Todavía no hay resultados. Pulse «Simular»."
+    provisional: str = (
+        "Los parámetros del modelo son provisionales hasta calibrarlos con un simulacro real."
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class UiTexts:
     """Catálogo de textos visibles para el usuario."""
 
@@ -138,6 +199,8 @@ class UiTexts:
     project: ProjectTexts = field(default_factory=ProjectTexts)
     wizard: WizardTexts = field(default_factory=WizardTexts)
     editor: EditorTexts = field(default_factory=EditorTexts)
+    rooms: RoomsTexts = field(default_factory=RoomsTexts)
+    simulation: SimulationTexts = field(default_factory=SimulationTexts)
 
 
 SPANISH = UiTexts(

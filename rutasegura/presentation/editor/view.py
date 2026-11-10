@@ -6,9 +6,20 @@ import math
 from enum import Enum, auto
 
 from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen, QWheelEvent
+from PySide6.QtGui import (
+    QColor,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QResizeEvent,
+    QShowEvent,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import (
     QGraphicsLineItem,
+    QGraphicsPathItem,
     QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
@@ -28,6 +39,7 @@ class Tool(Enum):
     SAFE_ZONE = auto()
     MEASURE = auto()  # línea de referencia para la escala
     POINTS = auto()  # marcar puntos sueltos (esquinas para enderezar)
+    POLYGON = auto()  # clic en cada vértice; doble clic, Enter o clic derecho para cerrar
     NONE = auto()  # solo mirar
 
 
@@ -53,6 +65,7 @@ class PlanView(QGraphicsView):
     segment_drawn = Signal(object, QPointF, QPointF)  # (Tool, inicio, fin) en coordenadas de escena
     area_drawn = Signal(object, QRectF)  # (Tool, rectángulo)
     point_picked = Signal(QPointF)
+    polygon_drawn = Signal(list)  # list[QPointF] (3 o más vértices)
     delete_requested = Signal()
 
     def __init__(self, scene: QGraphicsScene, parent: QWidget | None = None) -> None:
@@ -65,6 +78,9 @@ class PlanView(QGraphicsView):
         self._start: QPointF | None = None
         self._preview: QGraphicsLineItem | QGraphicsRectItem | None = None
         self._pan_from: QPoint | None = None
+        self._vertices: list[QPointF] = []
+        self._fit_pending = False
+        self._polygon_preview: QGraphicsPathItem | None = None
         self.set_tool(Tool.NONE)
 
     @property
@@ -96,10 +112,25 @@ class PlanView(QGraphicsView):
             self.scale(target / current, target / current)
 
     def fit_all(self) -> None:
-        """Muestra todo el plano."""
+        """Muestra todo el plano (si la vista aún no es visible, lo hace al mostrarse)."""
         rect = self.sceneRect()
-        if not rect.isEmpty():
-            self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+        if rect.isEmpty():
+            return
+        if not self.isVisible():
+            self._fit_pending = True
+            return
+        self._fit_pending = False
+        self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - API de Qt
+        super().showEvent(event)
+        if self._fit_pending:
+            self.fit_all()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - API de Qt
+        super().resizeEvent(event)
+        if self._fit_pending:
+            self.fit_all()
 
     # ----------------------------------------------------------------- eventos
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 - API de Qt
@@ -114,8 +145,16 @@ class PlanView(QGraphicsView):
             self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
             return
+        if self._tool is Tool.POLYGON and event.button() == Qt.MouseButton.RightButton:
+            self.finish_polygon()
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             pos = self.mapToScene(event.position().toPoint())
+            if self._tool is Tool.POLYGON:
+                self.add_polygon_vertex(pos)
+                event.accept()
+                return
             if self._tool is Tool.POINTS:
                 self.point_picked.emit(pos)
                 event.accept()
@@ -141,6 +180,10 @@ class PlanView(QGraphicsView):
             self._pan_from = event.position().toPoint()
             self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            event.accept()
+            return
+        if self._tool is Tool.POLYGON and self._vertices:
+            self._update_polygon_preview(self.mapToScene(event.position().toPoint()))
             event.accept()
             return
         if self._start is not None and self._preview is not None:
@@ -173,7 +216,18 @@ class PlanView(QGraphicsView):
             return
         super().mouseReleaseEvent(event)
 
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._tool is Tool.POLYGON:
+            self.finish_polygon()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if self._tool is Tool.POLYGON and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.finish_polygon()
+            event.accept()
+            return
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             self.delete_requested.emit()
             event.accept()
@@ -191,8 +245,41 @@ class PlanView(QGraphicsView):
             return snap_to_angle(self._start, end)
         return end
 
+    # ----------------------------------------------------------------- polígonos
+    def add_polygon_vertex(self, point: QPointF) -> None:
+        """Agrega un vértice al polígono en curso (ignora clics repetidos en el mismo lugar)."""
+        if self._vertices and QLineF(self._vertices[-1], point).length() < 2:
+            return
+        self._vertices.append(QPointF(point))
+        self._update_polygon_preview(point)
+
+    def finish_polygon(self) -> None:
+        """Cierra el polígono en curso y lo emite si tiene al menos 3 vértices."""
+        vertices = list(self._vertices)
+        self._cancel_drawing()
+        if len(vertices) >= 3:
+            self.polygon_drawn.emit(vertices)
+
+    def _update_polygon_preview(self, cursor: QPointF) -> None:
+        path = QPainterPath(self._vertices[0])
+        for vertex in self._vertices[1:]:
+            path.lineTo(vertex)
+        path.lineTo(cursor)
+        if self._polygon_preview is None:
+            pen = QPen(QColor("#d35400"), 2, Qt.PenStyle.DashLine)
+            pen.setCosmetic(True)
+            self._polygon_preview = QGraphicsPathItem()
+            self._polygon_preview.setPen(pen)
+            self._polygon_preview.setZValue(1000)
+            self.scene().addItem(self._polygon_preview)
+        self._polygon_preview.setPath(path)
+
     def _cancel_drawing(self) -> None:
         if self._preview is not None and self._preview.scene() is not None:
             self.scene().removeItem(self._preview)
+        if self._polygon_preview is not None and self._polygon_preview.scene() is not None:
+            self.scene().removeItem(self._polygon_preview)
         self._preview = None
+        self._polygon_preview = None
+        self._vertices = []
         self._start = None

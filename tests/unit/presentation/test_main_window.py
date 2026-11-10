@@ -47,7 +47,7 @@ def test_steps_enable_after_creating_project(qtbot: QtBot, services: AppServices
     assert not window.save_action.isEnabled()
     project_id = window.create_project("Colegio Prueba", UseType.EDUCATION)
     assert project_id is not None
-    assert [enabled(r) for r in range(7)] == [True, True, True, False, False, False, False]
+    assert [enabled(r) for r in range(7)] == [True, True, True, True, False, True, False]
     assert window.stack.currentWidget() is window.load_page
     assert "Colegio Prueba" in window.windowTitle()
 
