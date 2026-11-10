@@ -78,6 +78,11 @@ module = ["rutasegura.domain.*", "rutasegura.engines.*"]
 strict = true
 
 [[tool.mypy.overrides]]
+# PyMuPDF no tipa el constructor de Document ni Rect; solo se usa en la carga de archivos.
+module = ["rutasegura.engines.vision.images", "tests.unit.engines.vision.*"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
 
