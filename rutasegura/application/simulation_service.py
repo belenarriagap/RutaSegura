@@ -1,9 +1,11 @@
-"""Escenario base, ocupantes y ejecución de la simulación (RF05, RF07, RF08)."""
+"""Escenarios, ocupantes y ejecución de la simulación (RF05, RF07, RF08, RF10)."""
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +19,7 @@ from rutasegura.data.repositories import NotFoundError
 from rutasegura.data.trajectories import load_run, save_run
 from rutasegura.domain.enums import ObservationType
 from rutasegura.domain.geometry import Point
-from rutasegura.domain.people import PersonProfile
+from rutasegura.domain.people import Occupancy, PersonProfile
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.results import (
     Bottleneck,
@@ -28,7 +30,11 @@ from rutasegura.domain.results import (
 from rutasegura.domain.scenario import Scenario
 from rutasegura.engines.navigation.fields import distance_field
 from rutasegura.engines.navigation.grid import build_grid, polygon_to_m, segment_to_m
-from rutasegura.engines.simulation.engine import Simulation, SimulationCancelled
+from rutasegura.engines.simulation.engine import (
+    Simulation,
+    SimulationCancelled,
+    SimulationOutput,
+)
 from rutasegura.engines.simulation.params import SimulationParams
 from rutasegura.engines.simulation.population import PopulationError, RoomArea, spawn_agents
 
@@ -76,13 +82,75 @@ class SimulationService:
         with self._db.unit_of_work() as uow:
             return uow.profiles.list_all()
 
-    def load_scenario(self, project_id: int) -> Scenario:
-        """Escenario base del proyecto (vacío si todavía no existe)."""
+    def load_scenario(self, project_id: int, name: str = BASE_SCENARIO) -> Scenario:
+        """Escenario por nombre (el base se crea vacío si todavía no existe)."""
         with self._db.unit_of_work() as uow:
             try:
-                return uow.scenarios.get(uow.scenarios.find_id(project_id, BASE_SCENARIO))
+                return uow.scenarios.get(uow.scenarios.find_id(project_id, name))
             except NotFoundError:
-                return Scenario(BASE_SCENARIO, DEFAULT_SEED)
+                if name == BASE_SCENARIO:
+                    return Scenario(BASE_SCENARIO, DEFAULT_SEED)
+                raise UserFacingError(f"No existe el escenario «{name}».") from None
+
+    def list_scenarios(self, project_id: int) -> list[Scenario]:
+        """Escenarios del proyecto; el base siempre primero (aunque no esté guardado)."""
+        with self._db.unit_of_work() as uow:
+            stored = [s for _, s in uow.scenarios.list_all(project_id)]
+        base = next((s for s in stored if s.name == BASE_SCENARIO), None)
+        others = [s for s in stored if s.name != BASE_SCENARIO]
+        return [base or Scenario(BASE_SCENARIO, DEFAULT_SEED), *others]
+
+    def save_variant(
+        self,
+        project_id: int,
+        name: str,
+        base: Scenario,
+        occupancy_percent: float,
+        blocked_exits: Collection[str],
+        *,
+        previous_name: str | None = None,
+    ) -> Scenario:
+        """Crea (o actualiza) un escenario «qué pasa si» a partir del escenario base.
+
+        La ocupación es la del base multiplicada por ``occupancy_percent`` / 100; la semilla es
+        la del base. ``previous_name`` permite renombrar un escenario existente.
+        """
+        name = name.strip()
+        if not name:
+            raise UserFacingError("Escriba un nombre para el escenario.")
+        if name == BASE_SCENARIO:
+            raise UserFacingError(f"«{BASE_SCENARIO}» se edita en el paso 4.")
+        if occupancy_percent <= 0:
+            raise UserFacingError("El porcentaje de ocupación debe ser mayor que cero.")
+        target = round(base.total_occupants * occupancy_percent / 100)
+        existing = {s.name for s in self.list_scenarios(project_id)}
+        if name in existing and name != previous_name:
+            raise UserFacingError(f"Ya existe un escenario llamado «{name}».")
+        variant = Scenario(
+            name=name,
+            seed=base.seed,
+            occupancies=scale_occupancies(base.occupancies, target),
+            blocked_exits=frozenset(blocked_exits),
+        )
+        with self._db.unit_of_work() as uow:
+            if previous_name is not None and previous_name != name:
+                with contextlib.suppress(NotFoundError):
+                    uow.scenarios.rename(uow.scenarios.find_id(project_id, previous_name), name)
+            try:
+                uow.scenarios.save(project_id, variant)
+            except ValueError as exc:
+                raise UserFacingError(str(exc)) from exc
+        return variant
+
+    def delete_scenario(self, project_id: int, name: str) -> None:
+        """Elimina un escenario «qué pasa si» con sus simulaciones."""
+        if name == BASE_SCENARIO:
+            raise UserFacingError("El escenario base no se puede eliminar.")
+        with self._db.unit_of_work() as uow:
+            try:
+                uow.scenarios.delete(uow.scenarios.find_id(project_id, name))
+            except NotFoundError:
+                return
 
     def save_scenario(self, project_id: int, scenario: Scenario) -> int:
         """Guarda el escenario (los ambientes del plano deben estar guardados antes)."""
@@ -104,10 +172,24 @@ class SimulationService:
     ) -> SimulationRun:
         """Simula el escenario sobre el plano, guarda el resultado y lo devuelve."""
         scale = self._validate(plan, scenario)
+        output = self.simulate(plan, scenario, progress=progress, should_cancel=should_cancel)
+        return self._store(project_id, plan, scenario, output, scale)
+
+    def simulate(
+        self,
+        plan: FloorPlan,
+        scenario: Scenario,
+        profiles: Sequence[PersonProfile] | None = None,
+        *,
+        progress: Callable[[float], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
+    ) -> SimulationOutput:
+        """Simula sin guardar nada (lo usa también la calibración con perfiles modificados)."""
+        scale = self._validate(plan, scenario)
         grid = build_grid(plan, blocked_exits=scenario.blocked_exits)
         distance = distance_field(grid.walkable, grid.targets, grid.cell_size)
         rooms = [RoomArea(r.name, plan.level, polygon_to_m(r.area, scale)) for r in plan.rooms]
-        profiles = self.profiles()
+        profiles = list(profiles) if profiles is not None else self.profiles()
         rng = np.random.default_rng(scenario.seed)
         try:
             agents = spawn_agents(
@@ -124,10 +206,18 @@ class SimulationService:
             distance=distance,
         )
         try:
-            output = simulation.run(progress=progress, should_cancel=should_cancel)
+            return simulation.run(progress=progress, should_cancel=should_cancel)
         except SimulationCancelled as exc:
             raise OperationCancelled from exc
 
+    def _store(
+        self,
+        project_id: int,
+        plan: FloorPlan,
+        scenario: Scenario,
+        output: SimulationOutput,
+        scale: float,
+    ) -> SimulationRun:
         observations = tuple(
             self._congestion(b, plan, scale) for b in output.result.bottlenecks[:5]
         )
@@ -147,12 +237,12 @@ class SimulationService:
             )
         return SimulationRun(simulation_id, result, output.trajectories, observations, scale)
 
-    def last_run(self, project_id: int) -> SimulationRun | None:
-        """Última corrida del escenario base, si existe y su archivo sigue disponible."""
+    def last_run(self, project_id: int, name: str = BASE_SCENARIO) -> SimulationRun | None:
+        """Última corrida de un escenario, si existe y su archivo sigue disponible."""
         plan_scale = None
         with self._db.unit_of_work() as uow:
             try:
-                scenario_id = uow.scenarios.find_id(project_id, BASE_SCENARIO)
+                scenario_id = uow.scenarios.find_id(project_id, name)
             except NotFoundError:
                 return None
             runs = uow.simulations.list_all(scenario_id)
@@ -221,6 +311,21 @@ class SimulationService:
             recommendation=CONGESTION_ADVICE,
             location=bottleneck.location,
         )
+
+
+def scale_occupancies(occupancies: Sequence[Occupancy], target_total: int) -> tuple[Occupancy, ...]:
+    """Reparte ``target_total`` personas en las mismas proporciones (método del mayor resto)."""
+    current = sum(o.count for o in occupancies)
+    if current == 0 or target_total <= 0:
+        return ()
+    exact = [o.count * target_total / current for o in occupancies]
+    counts = [math.floor(x) for x in exact]
+    order = sorted(range(len(exact)), key=lambda i: (-(exact[i] - counts[i]), i))
+    for i in order[: target_total - sum(counts)]:
+        counts[i] += 1
+    return tuple(
+        dataclasses.replace(o, count=c) for o, c in zip(occupancies, counts, strict=True) if c > 0
+    )
 
 
 def describe_place(plan: FloorPlan, scale: float, point_m: Point) -> str:

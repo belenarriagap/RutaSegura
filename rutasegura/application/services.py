@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from rutasegura.application.calibration_service import CalibrationService
 from rutasegura.application.norms_service import NormsService
 from rutasegura.application.plan_import import PlanImportService
 from rutasegura.application.projects import ProjectService
@@ -22,6 +23,7 @@ class AppServices:
     simulations: SimulationService
     norms: NormsService
     reports: ReportService
+    calibration: CalibrationService
     database: Database
 
     @classmethod
@@ -38,6 +40,7 @@ class AppServices:
             simulations=simulations,
             norms=norms,
             reports=ReportService(projects, simulations, norms),
+            calibration=CalibrationService(database, simulations),
             database=database,
         )
 

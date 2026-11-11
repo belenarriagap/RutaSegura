@@ -414,6 +414,11 @@ class ScenarioRepository:
         )
         return [(r.id, self._to_domain(r)) for r in records]
 
+    def rename(self, scenario_id: int, name: str) -> None:
+        """Cambia el nombre de un escenario."""
+        _get(self._s, ScenarioRecord, scenario_id, "el escenario").name = name
+        self._s.flush()
+
     def delete(self, scenario_id: int) -> None:
         """Elimina el escenario con sus simulaciones."""
         self._s.delete(_get(self._s, ScenarioRecord, scenario_id, "el escenario"))
