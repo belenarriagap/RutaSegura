@@ -4,6 +4,60 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Hito 4: normas e informe (2026-11-10)
+
+#### Agregado
+- **Motor de reglas guiado por datos** (`engines/norms`): las reglas viven en
+  `resources/norms/*.yaml`, con validación de formato y mensajes claros. Tipos de regla:
+  - índice de ocupación por uso y categoría;
+  - ancho por persona de puertas y salidas;
+  - anchos mínimos de puertas, salidas y pasillos;
+  - aviso de barra antipánico.
+- **Todas las reglas quedan sin verificar** (`verificado: false` y `# VERIFICAR con texto oficial
+  RNE`). La lista y la forma de verificarlas están en `docs/normas.md`.
+- **Verificación normativa (RF06):**
+  - aforo por ambiente;
+  - ancho total de las puertas de cada ambiente;
+  - ancho total de las salidas del local;
+  - anchos mínimos;
+  - ancho estimado de los pasillos;
+  - barra antipánico.
+
+  Cada observación cita norma y artículo y dice si la regla está verificada.
+- **10 casos de prueba de aforo** en `tests/unit/norms/casos_aforo.yaml`. Los resultados esperados
+  son provisionales (`confirmado: false`).
+- **Informe PDF (RF09)** con ReportLab y Matplotlib, que incluye:
+  - portada;
+  - resumen con el tiempo total;
+  - advertencia cuando hay reglas no verificadas;
+  - tabla de aforo y observaciones normativas;
+  - mapa de calor con los cuellos de botella numerados;
+  - curva de evacuados;
+  - tiempo por salida;
+  - ranking de cuellos de botella;
+  - parámetros, perfiles y semilla;
+  - reglas usadas;
+  - aclaración legal en la portada, al final y al pie de cada página.
+
+  La fuente DejaVu Sans va incrustada desde la instalación local de Matplotlib.
+- **Paso 5, revisar norma:**
+  - tabla de aforo con la categoría de cada ambiente editable;
+  - ambientes que exceden el aforo resaltados;
+  - aviso de reglas no verificadas y lista de observaciones.
+- **Paso 7, informe:** genera el PDF en segundo plano y tiene un botón para abrirlo.
+- **Observaciones guardadas:** las observaciones normativas se guardan con cada simulación en la
+  tabla `observacion`.
+
+#### Cambiado
+- `Room` tiene el nuevo campo `category`. La migración 0002 agrega la columna `ambiente.categoria`.
+- Los 7 pasos del asistente están activos.
+- Nueva dependencia de desarrollo: `types-reportlab`, que solo se usa para revisar tipos.
+
+#### Corregido
+- La detección de vanos subestimaba el ancho en unos 4 cm. Ahora el sesgo medio es de −0.4 cm en
+  20 planos sintéticos, y una prueba lo vigila.
+- El script de evaluación de visión fallaba al redirigir su salida en la consola de Windows.
+
 ### Hito 3: navegación y simulación (2026-11-10)
 
 #### Agregado

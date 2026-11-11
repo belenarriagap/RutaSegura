@@ -253,3 +253,57 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
   `failed` y `cancelled`. La cancelación es cooperativa (`threading.Event`, que el motor revisa cada
   10 pasos).
 - **Alternativa:** subclase de `QThread`. Tiene más código repetido y el mismo efecto.
+
+## ADR-021: categoría de ambiente para el índice de ocupación
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** el índice de ocupación depende de la actividad (aula, taller, administración…), no
+  solo del uso general del local.
+- **Decisión:**
+  - `Room.category` guarda el id de la categoría definida en las reglas YAML (columna
+    `ambiente.categoria`, migración 0002);
+  - si queda vacío, se usa la categoría por defecto del uso;
+  - el usuario la cambia en el paso 5.
+
+## ADR-022: reglas normativas sin verificar y supuestos de cálculo
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (pendiente de verificación normativa)
+- **Decisión:**
+  - **Valores:** las reglas usan valores de referencia a confirmar, todas con `verificado: false`.
+    La interfaz y el informe advierten cada regla no verificada que se haya usado (CLAUDE.md §5.4).
+  - **Puertas de un ambiente:** el ancho requerido se compara con la suma de los vanos de ese
+    ambiente (vanos a menos de 0.6 m de su contorno).
+  - **Ancho de pasillos:** se estima como el diámetro del mayor círculo inscrito en su polígono.
+  - **Barra antipánico:** solo se avisa, porque no se puede ver en el plano.
+- **Alternativa:** repartir el flujo entre ambientes encadenados con la red de navegación. Es más
+  fiel, pero mucho más complejo y difícil de explicar en el informe.
+
+## ADR-023: informe con ReportLab y fuente DejaVu de Matplotlib
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - la fuente DejaVu Sans, que viene con Matplotlib, se registra en ReportLab y se incrusta en el
+    PDF; así se ven bien las tildes, la «ñ», «²» y «·» sin descargar fuentes;
+  - los gráficos se dibujan con `matplotlib.figure.Figure` (lienzo Agg, sin pyplot).
+- **Consecuencia:** el instalador (Hito 6) debe incluir los TTF de Matplotlib y los YAML de
+  `resources/norms`.
+
+## ADR-024: corrección de 1 px por borde en el ancho de vanos
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** en 98 vanos sintéticos, el ancho detectado era 4.4 cm menor que el real, con una
+  desviación de 1.6 cm. La causa es el muestreo del tramo vacío y el antialias del borde del muro.
+  Con un mínimo normativo de 0.90 m, ese sesgo generaba observaciones falsas.
+- **Decisión:** ampliar cada vano 1 px por lado (`EDGE_CORRECTION_PX`). El sesgo medio queda en
+  −0.4 cm.
+- **Pendiente:** revisar el valor con los planos reales etiquetados, que pueden tener otra
+  resolución y otro desenfoque.
+
+## ADR-025: observaciones normativas guardadas con cada simulación
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - la tabla `observacion` cuelga de `simulacion` (CLAUDE.md §6), así que al simular se guardan
+    las observaciones de congestión y las normativas del plano en ese momento;
+  - el paso 5 y el informe recalculan las normativas con el plano actual, para reflejar los
+    cambios hechos después de simular.

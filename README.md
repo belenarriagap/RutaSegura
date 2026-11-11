@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 3 (navegación y simulación) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 4 (normas e informe) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 
@@ -78,6 +78,7 @@ docs/            CHANGELOG, decisiones (ADR)
 - [docs/formato_etiquetas.md](docs/formato_etiquetas.md): cómo etiquetar planos reales para evaluar la visión.
 - [docs/parametros_simulacion.md](docs/parametros_simulacion.md): parámetros del modelo de movimiento (provisionales).
 - [docs/rendimiento.md](docs/rendimiento.md): benchmarks del motor y del render.
+- [docs/normas.md](docs/normas.md): reglas normativas, su estado de verificación y cómo corregirlas.
 - [CLAUDE.md](CLAUDE.md): especificación completa del proyecto.
 
 ## Base de datos
