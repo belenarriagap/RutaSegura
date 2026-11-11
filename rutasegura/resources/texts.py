@@ -78,7 +78,7 @@ class WizardTexts:
         "Revise y corrija lo necesario."
     )
     no_image: str = "Primero cargue un plano en el paso 1."
-    step_not_ready: str = "Este paso estará disponible en el próximo hito."
+    step_not_ready: str = "Este paso todavía no está disponible."
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +179,61 @@ class SimulationTexts:
 
 
 @dataclass(frozen=True, slots=True)
+class NormsTexts:
+    """Paso 5: revisar norma."""
+
+    title: str = "Paso 5. Revisar norma"
+    help: str = (
+        "Para cada ambiente se calcula el aforo (cuántas personas puede recibir) según su "
+        "categoría, y se revisan los anchos de puertas, salidas y pasillos. Elija la categoría "
+        "que mejor describa el uso de cada ambiente."
+    )
+    column_name: str = "Ambiente"
+    column_category: str = "Categoría"
+    column_area: str = "Área (m²)"
+    column_capacity: str = "Aforo"
+    column_occupants: str = "Ocupantes"
+    column_status: str = "Estado"
+    status_ok: str = "Correcto"
+    status_exceeded: str = "Excede el aforo"
+    status_no_capacity: str = "Sin aforo propio"
+    total: str = "Aforo total: {capacity} personas · Ocupantes asignados: {occupants}"
+    observations_title: str = "Observaciones normativas"
+    no_observations: str = "No se encontraron incumplimientos con las reglas usadas."
+    observation: str = "{description}\n{citation}"
+    unverified_tag: str = " · regla no verificada"
+    unverified_warning: str = (
+        "Atención: {count} regla(s) usada(s) todavía no fueron verificadas con el texto oficial "
+        "del RNE. Los resultados son orientativos hasta confirmarlas."
+    )
+    no_scale: str = "Primero defina la escala del plano (paso 2)."
+
+
+@dataclass(frozen=True, slots=True)
+class ReportTexts:
+    """Paso 7: informe PDF."""
+
+    title: str = "Paso 7. Informe"
+    help: str = (
+        "Genere un informe PDF con el tiempo estimado de evacuación, el mapa de calor, los "
+        "cuellos de botella, el aforo y las observaciones normativas, para compartirlo con su "
+        "comité o brigada."
+    )
+    generate: str = "Generar informe PDF…"
+    generating: str = "Generando el informe…"
+    open: str = "Abrir informe"
+    save_title: str = "Guardar informe"
+    save_filter: str = "Documento PDF (*.pdf)"
+    default_name: str = "Informe de evacuación - {name}.pdf"
+    saved: str = "Informe guardado en:\n{path}"
+    no_run: str = (
+        "Todavía no simuló la evacuación: el informe no incluirá tiempos ni mapa de calor. "
+        "Puede simular en el paso 6."
+    )
+    ready: str = "El informe incluirá la última simulación guardada."
+
+
+@dataclass(frozen=True, slots=True)
 class UiTexts:
     """Catálogo de textos visibles para el usuario."""
 
@@ -201,6 +256,8 @@ class UiTexts:
     editor: EditorTexts = field(default_factory=EditorTexts)
     rooms: RoomsTexts = field(default_factory=RoomsTexts)
     simulation: SimulationTexts = field(default_factory=SimulationTexts)
+    norms: NormsTexts = field(default_factory=NormsTexts)
+    report: ReportTexts = field(default_factory=ReportTexts)
 
 
 SPANISH = UiTexts(

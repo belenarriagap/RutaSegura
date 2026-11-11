@@ -1,4 +1,4 @@
-"""Ventana principal: asistente paso a paso (pasos 1–4 y 6 activos desde el Hito 3)."""
+"""Ventana principal: asistente de 7 pasos, del plano al informe."""
 
 from __future__ import annotations
 
@@ -28,7 +28,9 @@ from rutasegura.application.services import AppServices
 from rutasegura.domain.enums import UseType
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import Scenario
+from rutasegura.presentation.norms_page import NormsPage
 from rutasegura.presentation.project_dialogs import NewProjectDialog, OpenProjectDialog
+from rutasegura.presentation.report_page import ReportPage
 from rutasegura.presentation.rooms_page import RoomsPage
 from rutasegura.presentation.simulation_page import SimulationPage
 from rutasegura.presentation.wizard_pages import EditorPage, LoadPlanPage, ScalePage
@@ -36,8 +38,16 @@ from rutasegura.resources.texts import TEXTS, UiTexts
 
 Image = npt.NDArray[np.uint8]
 
-STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_NORMS, STEP_SIMULATE = 0, 1, 2, 3, 4, 5
-ACTIVE_STEPS = (STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_SIMULATE)
+STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_NORMS, STEP_SIMULATE, STEP_REPORT = range(7)
+ACTIVE_STEPS = (
+    STEP_LOAD,
+    STEP_SCALE,
+    STEP_EDIT,
+    STEP_ROOMS,
+    STEP_NORMS,
+    STEP_SIMULATE,
+    STEP_REPORT,
+)
 
 
 class MainWindow(QMainWindow):
@@ -57,6 +67,7 @@ class MainWindow(QMainWindow):
         self._scenario: Scenario | None = None
         self._scenario_dirty = False
         self._project_use = UseType.EDUCATION
+        self._project_name = ""
 
         self.setWindowTitle(texts.window_title)
         self.resize(1200, 780)
@@ -111,12 +122,17 @@ class MainWindow(QMainWindow):
         self.rooms_page.scenario_changed.connect(self._on_scenario_changed)
         self.simulation_page = SimulationPage(self._services.simulations, self._texts.simulation)
         self.simulation_page.scenario_changed.connect(self._on_scenario_changed)
+        self.norms_page = NormsPage(self._services.norms, self._texts.norms)
+        self.norms_page.plan_changed.connect(self._on_plan_edited)
+        self.report_page = ReportPage(self._services.reports, self._texts.report)
         for page in (
             self.load_page,
             self.scale_page,
             self.editor_page,
             self.rooms_page,
+            self.norms_page,
             self.simulation_page,
+            self.report_page,
         ):
             page.error.connect(self.show_error)
 
@@ -139,7 +155,9 @@ class MainWindow(QMainWindow):
             self.scale_page,
             self.editor_page,
             self.rooms_page,
+            self.norms_page,
             self.simulation_page,
+            self.report_page,
             self.pending_page,
         ):
             self.stack.addWidget(page)
@@ -221,6 +239,7 @@ class MainWindow(QMainWindow):
         image = self._services.projects.load_floor_image(plan)
         self.project_id = project_id
         self._project_use = project.use
+        self._project_name = project.name
         self._plan, self._image = plan, image
         self._image_dirty = self._dirty = self._scenario_dirty = False
         self._scenario = self._services.simulations.load_scenario(project_id)
@@ -301,6 +320,16 @@ class MainWindow(QMainWindow):
                 self._project_use,
             )
             self.stack.setCurrentWidget(self.rooms_page)
+        elif step == STEP_NORMS:
+            self.norms_page.set_content(self._plan, self._scenario)
+            self.stack.setCurrentWidget(self.norms_page)
+        elif step == STEP_REPORT:
+            self.report_page.set_content(
+                self.project_id,
+                self._project_name,
+                self.simulation_page.current_run is not None,
+            )
+            self.stack.setCurrentWidget(self.report_page)
         elif step == STEP_SIMULATE and self._scenario is not None:
             self.simulation_page.set_content(
                 self.project_id, self._plan, self._image, self._scenario
