@@ -27,6 +27,12 @@ def describe_parameters(params: SimulationParams) -> tuple[tuple[str, str], ...]
         ("Umbral de congestión (provisional)", f"{p.congestion_density:g} personas/m²"),
         ("Duración mínima de congestión (provisional)", f"{p.congestion_min_duration_s:g} s"),
         ("Tiempo máximo simulado", f"{p.max_time_s:g} s"),
+        ("Recorrido de escalera por piso (provisional)", f"{p.stair_travel_m:g} m"),
+        (
+            "Velocidad al bajar escaleras (provisional)",
+            f"{p.stair_speed_factor:.0%} de la horizontal",
+        ),
+        ("Flujo específico de escalera (provisional)", f"{p.stair_specific_flow:g} personas/(s·m)"),
     )
 
 
