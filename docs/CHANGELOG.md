@@ -18,6 +18,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   lo avisa.
 - **Mensajes:** si las personas no llegan a ninguna salida, el mensaje explica que la salida debe
   estar sobre un muro exterior.
+- **Puerta que perforaba el contorno:** una puerta dibujada hasta la esquina con un muro exterior
+  abría un hueco en ese muro. Todo el edificio quedaba conectado con el exterior y ningún ambiente
+  llegaba a una salida. Ahora una puerta solo abre el muro en el que está, y los muros que toca de
+  costado se mantienen cerrados.
+- **Personas atascadas en pasos angostos:** las personas con silla de ruedas (radio 0.35 m)
+  quedaban inmóviles para siempre en esquinas y entre muebles, porque la repulsión del muro las
+  empujaba hacia atrás con más fuerza de la que tenían para avanzar. Ahora los muros empujan de
+  costado, pero nunca en contra de la ruta (ADR-033).
+- **Mensaje de contorno abierto:** si un ambiente queda conectado con el exterior, el mensaje dice
+  que hay un hueco en el contorno del edificio, en lugar de pedir que se revisen las puertas.
 
 #### Agregado
 - **Botón «Confirmar todas»** en el editor, para las salidas propuestas.

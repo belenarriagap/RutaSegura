@@ -400,3 +400,21 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
   - Las observaciones llevan el prefijo «Piso N:».
 - **Pendiente:** agregar a `medios_evacuacion.yaml` el ancho mínimo y por persona de las
   escaleras, con el texto oficial del RNE A.130 (`verificado: false` hasta confirmarlo).
+
+## ADR-033: los muros no empujan en contra de la ruta
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** con el modelo de fuerza social, la repulsión de un muro, `A_w·exp((r − d)/B_w)`,
+  crece rápido cuando la persona es ancha (silla de ruedas, `r = 0.35 m`). En esquinas y pasos
+  de 0.8 a 1 m entre muebles, esa fuerza superaba a la de avanzar (`v/τ ≈ 1.6 m/s²`), y la persona
+  quedaba en equilibrio, inmóvil hasta el límite de tiempo.
+- **Decisión:** se quita de la fuerza de los muros la componente opuesta a la dirección deseada
+  (el gradiente del campo de distancia). Los muros siguen apartando a las personas hacia los
+  lados, pero no las frenan. Los muros siguen siendo impenetrables por la corrección de posición
+  sobre la grilla.
+- **Alternativas:**
+  - Bajar `wall_strength`: las personas rozarían los muros en todo el recorrido.
+  - Detectar atascos y «empujar»: es más complejo y depende de umbrales arbitrarios.
+- **Efecto:** el rendimiento no cambia (unos 480 pasos/s con 500 agentes). En pasillos más
+  angostos que la persona, el modelo la deja pasar rozando: el estrechamiento se refleja en la
+  densidad y en la velocidad, no en un bloqueo permanente.
