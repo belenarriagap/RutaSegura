@@ -9,12 +9,12 @@ import numpy as np
 import pytest
 
 from rutasegura.domain.enums import CellType
-from rutasegura.domain.plan import FloorPlan
+from rutasegura.domain.plan import Door, FloorPlan, Wall
 from rutasegura.engines.navigation.astar import astar, path_length
 from rutasegura.engines.navigation.fields import direction_field, distance_field, wall_distance
 from rutasegura.engines.navigation.grid import build_grid
 from rutasegura.engines.navigation.rooms import detect_rooms
-from tests.fixtures.simple_plans import room_with_patio, single_room, two_rooms
+from tests.fixtures.simple_plans import _seg, room_with_patio, single_room, two_rooms
 
 
 class TestGrid:
@@ -37,6 +37,25 @@ class TestGrid:
         assert blocked.cells[inside][0] == CellType.FREE
         unconfirmed = build_grid(single_room(confirmed=False))
         assert not unconfirmed.targets.any()
+
+    def test_door_touching_an_exterior_wall_does_not_open_it(self) -> None:
+        """Caso real: la puerta de la cocina llegaba hasta el muro exterior y lo perforaba;
+        todo el edificio quedaba conectado con el exterior."""
+        base = two_rooms()
+        # puerta vertical en x = 6 que sobrepasa el muro exterior de arriba (y = 0)
+        door = Door(_seg(6, -0.1, 6, 0.9))
+        walls = tuple(w for w in base.walls if w.segment != _seg(6, 0, 6, 2.55))
+        plan = dataclasses.replace(
+            base,
+            walls=(*walls, Wall(_seg(6, 0.9, 6, 2.55))),
+            doors=(*base.doors, door),
+        )
+        grid = build_grid(plan)
+        inside = grid.to_cell(np.array([[3.0, 3.0], [6.0, 0.5]]))
+        assert grid.cells[inside][0] == CellType.FREE
+        assert grid.cells[inside][1] == CellType.DOOR  # la puerta sigue abierta
+        dist = distance_field(grid.walkable, grid.targets, grid.cell_size)
+        assert np.isfinite(dist[inside]).all()
 
     def test_interior_safe_zone_is_a_target(self) -> None:
         grid = build_grid(room_with_patio())

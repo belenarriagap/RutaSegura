@@ -81,6 +81,14 @@ def spawn_agents(
         cells = grid.polygon_mask(room.polygon_m) & usable
         rows, cols = np.nonzero(cells)
         if rows.size == 0:
+            outside = grid.polygon_mask(room.polygon_m) & (grid.cells == int(CellType.OUTSIDE))
+            if outside.any():
+                raise PopulationError(
+                    f"«{occ.room_name}» quedó conectado con el exterior: hay un hueco en el "
+                    "contorno del edificio (un muro exterior que no llega a cerrar o una puerta "
+                    "que lo atraviesa). Cierre el contorno en el paso 3; las salidas se dibujan "
+                    "con la herramienta Salida, no como puerta."
+                )
             raise PopulationError(
                 f"Las personas de «{occ.room_name}» no pueden llegar a ninguna salida. Revise que "
                 "el ambiente tenga una puerta y que las salidas estén dibujadas sobre un muro "

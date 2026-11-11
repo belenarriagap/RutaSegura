@@ -6,7 +6,9 @@ Coordenadas en metros: ``x_m = x_px * escala``. La celda (fila, columna) cubre
 Reglas de construcción:
 
 * Muros: líneas 4-conexas (no dejan pasar movimientos diagonales).
-* Puertas: celdas transitables sobre el vano.
+* Puertas: celdas transitables sobre el vano. Solo abren el muro en el que están: los muros que
+  la puerta toca de costado (p. ej. una puerta dibujada hasta la esquina con un muro exterior) se
+  vuelven a trazar, para que la puerta no perfore el contorno del edificio.
 * Salidas confirmadas y no bloqueadas: celdas objetivo. Las bloqueadas o sin confirmar se sellan
   como muro (un vano exterior sin salida activa no se puede usar).
 * Zonas seguras dentro del edificio: celdas objetivo.
@@ -31,6 +33,7 @@ CELL_SIZE_M = 0.4
 WALKABLE = (CellType.FREE, CellType.DOOR, CellType.EXIT, CellType.STAIR, CellType.SAFE_ZONE)
 TARGETS = (CellType.EXIT, CellType.SAFE_ZONE)
 _SHIFT = 4  # precisión subpíxel de cv2 (1/16 de celda)
+_SAME_LINE_MAX_ANGLE_DEG = 25.0
 
 FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -172,6 +175,10 @@ def build_grid(
         line(segment_to_m(exit_.segment, scale), CellType.WALL, cv2.LINE_4)
     for seg in doors:
         line(seg, CellType.DOOR, cv2.LINE_8)
+    # Una puerta solo abre el muro en el que está; los muros que cruza o toca se restauran.
+    for seg in walls:
+        if not any(_on_same_line(seg, door, cell_size) for door in doors):
+            line(seg, CellType.WALL, cv2.LINE_4)
 
     for poly in stairs:
         stair_mask = np.zeros_like(cells)
@@ -207,6 +214,21 @@ def build_grid(
     # Las zonas seguras que quedaron afuera no son alcanzables por dentro: dejan de ser objetivo.
     target_ids[cells == int(CellType.OUTSIDE)] = -1
     return NavGrid(cells.astype(np.int8), cell_size, origin, target_ids, tuple(names), tuple(kinds))
+
+
+def _on_same_line(wall: Segment, door: Segment, tolerance_m: float) -> bool:
+    """¿La puerta está sobre la recta del muro (casi paralela y a menos de ``tolerance_m``)?"""
+    wx, wy = wall.end.x - wall.start.x, wall.end.y - wall.start.y
+    dx, dy = door.end.x - door.start.x, door.end.y - door.start.y
+    wall_len, door_len = math.hypot(wx, wy), math.hypot(dx, dy)
+    if wall_len == 0 or door_len == 0:
+        return False
+    sin_angle = abs(wx * dy - wy * dx) / (wall_len * door_len)
+    if sin_angle > math.sin(math.radians(_SAME_LINE_MAX_ANGLE_DEG)):
+        return False
+    mid = door.midpoint
+    offset = abs(wx * (mid.y - wall.start.y) - wy * (mid.x - wall.start.x)) / wall_len
+    return offset <= tolerance_m
 
 
 def _mark_outside(cells: npt.NDArray[np.uint8]) -> None:
