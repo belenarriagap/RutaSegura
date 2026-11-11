@@ -13,13 +13,16 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import shiboken6
-from PySide6.QtCore import QPointF, QRectF, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoCommand, QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QGroupBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
+    QMenu,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -31,6 +34,9 @@ from rutasegura.domain.geometry import Point, Polygon, Segment
 from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, SafeZone, Stair, Wall
 from rutasegura.presentation.editor.scene import ElementRef, PlanScene
 from rutasegura.presentation.editor.view import PlanView, Tool
+from rutasegura.presentation.icons import element_icon, select_icon
+from rutasegura.presentation.theme import ERROR
+from rutasegura.presentation.widgets import muted
 from rutasegura.resources.texts import TEXTS, EditorTexts
 
 TOOL_KIND = {
@@ -41,6 +47,18 @@ TOOL_KIND = {
     Tool.OBSTACLE: ElementType.OBSTACLE,
     Tool.SAFE_ZONE: ElementType.SAFE_ZONE,
 }
+
+# Atajos de teclado de las herramientas (activos cuando el foco está en el editor).
+TOOL_SHORTCUTS = {
+    Tool.SELECT: "V",
+    Tool.WALL: "M",
+    Tool.DOOR: "P",
+    Tool.EXIT: "S",
+    Tool.STAIR: "E",
+    Tool.OBSTACLE: "O",
+    Tool.SAFE_ZONE: "Z",
+}
+RENAMABLE = frozenset({ElementType.EXIT, ElementType.STAIR, ElementType.SAFE_ZONE})
 
 _FIELD = {
     ElementType.WALL: "walls",
@@ -94,6 +112,7 @@ class PlanEditor(QWidget):
     """Editor: herramientas, capas visibles y edición con deshacer."""
 
     plan_changed = Signal(object)  # FloorPlan
+    error = Signal(str)
 
     def __init__(self, texts: EditorTexts = TEXTS.editor, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -105,6 +124,8 @@ class PlanEditor(QWidget):
         self.view.segment_drawn.connect(self._on_segment)
         self.view.area_drawn.connect(self._on_area)
         self.view.delete_requested.connect(self.delete_selected)
+        self.view.context_menu_requested.connect(self._on_context_menu)
+        self.view.double_clicked.connect(self._on_double_click)
         self.scene.selectionChanged.connect(self._update_actions)
         self._build_ui()
         self.set_tool(Tool.SELECT)
@@ -113,23 +134,32 @@ class PlanEditor(QWidget):
     def _build_ui(self) -> None:
         t = self._texts
         self.toolbar = QToolBar()
+        self.toolbar.setIconSize(QSize(18, 18))
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.tool_actions: dict[Tool, QAction] = {}
         group = QActionGroup(self)
         group.setExclusive(True)
-        for tool, label in (
-            (Tool.SELECT, t.tool_select),
-            (Tool.WALL, t.tool_wall),
-            (Tool.DOOR, t.tool_door),
-            (Tool.EXIT, t.tool_exit),
-            (Tool.STAIR, t.tool_stair),
-            (Tool.OBSTACLE, t.tool_obstacle),
-            (Tool.SAFE_ZONE, t.tool_safe_zone),
+        for tool, label, tip in (
+            (Tool.SELECT, t.tool_select, t.tip_select),
+            (Tool.WALL, t.tool_wall, t.tip_wall),
+            (Tool.DOOR, t.tool_door, t.tip_door),
+            (Tool.EXIT, t.tool_exit, t.tip_exit),
+            (Tool.STAIR, t.tool_stair, t.tip_stair),
+            (Tool.OBSTACLE, t.tool_obstacle, t.tip_obstacle),
+            (Tool.SAFE_ZONE, t.tool_safe_zone, t.tip_safe_zone),
         ):
-            action = QAction(label, self)
+            kind = TOOL_KIND.get(tool)
+            icon = select_icon() if kind is None else element_icon(kind)
+            action = QAction(icon, label, self)
             action.setCheckable(True)
+            key = TOOL_SHORTCUTS[tool]
+            action.setShortcut(QKeySequence(key))
+            action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            action.setToolTip(t.tip_shortcut.format(tip=tip, key=key))
             action.triggered.connect(lambda _=False, tl=tool: self.set_tool(tl))
             group.addAction(action)
             self.toolbar.addAction(action)
+            self.addAction(action)  # para que el atajo funcione con el foco en el plano
             self.tool_actions[tool] = action
         self.toolbar.addSeparator()
         self.delete_action = QAction(t.delete, self)
@@ -144,9 +174,9 @@ class PlanEditor(QWidget):
         self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
         fit_action = QAction(t.fit, self)
         fit_action.triggered.connect(self.view.fit_all)
+        # «Confirmar salida» está en el menú Editar, el clic derecho y el doble clic.
         for action in (
             self.delete_action,
-            self.confirm_action,
             self.confirm_all_action,
             self.undo_action,
             self.redo_action,
@@ -154,7 +184,8 @@ class PlanEditor(QWidget):
         ):
             self.toolbar.addAction(action)
 
-        layers = QGroupBox(t.layers)
+        layers = QGroupBox(t.legend_title)
+        layers.setObjectName("legend")
         layers_layout = QVBoxLayout(layers)
         self.layer_boxes: dict[ElementType | None, QCheckBox] = {}
         for kind, label in (
@@ -167,31 +198,33 @@ class PlanEditor(QWidget):
             (ElementType.SAFE_ZONE, t.layer_safe_zones),
         ):
             box = QCheckBox(label)
+            box.setIcon(element_icon(kind))
             box.setChecked(True)
             box.toggled.connect(lambda checked, k=kind: self.scene.set_layer_visible(k, checked))
             layers_layout.addWidget(box)
             self.layer_boxes[kind] = box
-        layers_layout.addStretch(1)
 
-        self.hint_label = QLabel()
-        self.hint_label.setWordWrap(True)
+        self.hint_label = muted()
         self.pending_label = QLabel()
         self.pending_label.setWordWrap(True)
-        self.pending_label.setStyleSheet("color: #c0392b; font-weight: bold;")
+        self.pending_label.setStyleSheet(f"color: {ERROR}; font-weight: 600;")
         side = QVBoxLayout()
         side.addWidget(layers)
+        side.addWidget(muted(t.legend_dashed))
+        side.addWidget(muted(t.legend_low))
         side.addWidget(self.pending_label)
         side.addWidget(self.hint_label)
         side.addStretch(1)
         side_widget = QWidget()
         side_widget.setLayout(side)
-        side_widget.setMaximumWidth(230)
+        side_widget.setMaximumWidth(250)
 
         body = QHBoxLayout()
         body.addWidget(self.view, stretch=1)
         body.addWidget(side_widget)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(6)
         root.addWidget(self.toolbar)
         root.addLayout(body)
 
@@ -337,6 +370,72 @@ class PlanEditor(QWidget):
     def confirm_selected_exits(self) -> None:
         """Confirma las salidas propuestas seleccionadas."""
         self.confirm_exits(i for kind, i in self.scene.selected_refs() if kind is ElementType.EXIT)
+
+    def rename(self, ref: ElementRef, name: str) -> bool:
+        """Cambia el nombre de una salida, escalera o zona segura (se puede deshacer)."""
+        kind, index = ref
+        t = self._texts
+        name = name.strip()
+        if kind not in RENAMABLE or not 0 <= index < len(getattr(self._plan, _FIELD[kind])):
+            return False
+        if not name:
+            self.error.emit(t.name_empty)
+            return False
+        elements = getattr(self._plan, _FIELD[kind])
+        if any(el.name == name for i, el in enumerate(elements) if i != index):
+            self.error.emit(t.name_in_use.format(name=name))
+            return False
+        if elements[index].name == name:
+            return True
+        changes: dict[str, Any] = {
+            _FIELD[kind]: tuple(
+                dataclasses.replace(el, name=name) if i == index else el
+                for i, el in enumerate(elements)
+            )
+        }
+        self.apply(dataclasses.replace(self._plan, **changes), t.cmd_rename.format(name=name))
+        return True
+
+    def ask_rename(self, ref: ElementRef) -> None:
+        """Pide el nombre nuevo en un cuadro de texto."""
+        kind, index = ref
+        current = getattr(self._plan, _FIELD[kind])[index].name
+        t = self._texts
+        name, ok = QInputDialog.getText(
+            self, t.rename_title, t.rename_label, QLineEdit.EchoMode.Normal, current
+        )
+        if ok:
+            self.rename(ref, name)
+
+    def context_menu(self, ref: ElementRef) -> QMenu:
+        """Menú del clic derecho para un elemento: confirmar, cambiar nombre, borrar."""
+        t = self._texts
+        kind, index = ref
+        menu = QMenu(self)
+        if kind is ElementType.EXIT and not self._plan.exits[index].confirmed:
+            menu.addAction(t.menu_confirm).triggered.connect(lambda: self.confirm_exits([index]))
+        if kind in RENAMABLE:
+            menu.addAction(t.menu_rename).triggered.connect(lambda: self.ask_rename(ref))
+        menu.addSeparator()
+        menu.addAction(t.menu_delete).triggered.connect(lambda: self.delete([ref]))
+        return menu
+
+    def _on_context_menu(self, global_pos: QPoint, scene_pos: QPointF) -> None:
+        ref = self.scene.ref_at(scene_pos, self.view.scene_tolerance())
+        if ref is None:
+            return
+        self.scene.select_only(ref)
+        self.context_menu(ref).exec(global_pos)
+
+    def _on_double_click(self, scene_pos: QPointF) -> None:
+        ref = self.scene.ref_at(scene_pos, self.view.scene_tolerance())
+        if ref is None:
+            return
+        kind, index = ref
+        if kind is ElementType.EXIT and not self._plan.exits[index].confirmed:
+            self.confirm_exits([index])  # doble clic = confirmar la salida propuesta
+        elif kind in RENAMABLE:
+            self.ask_rename(ref)
 
     # ----------------------------------------------------------------- señales de la vista
     def _on_segment(self, tool: Tool, start: QPointF, end: QPointF) -> None:

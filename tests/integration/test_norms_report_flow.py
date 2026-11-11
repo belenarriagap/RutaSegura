@@ -49,11 +49,14 @@ def test_norms_step_shows_capacity_and_category_changes(window: MainWindow) -> N
     assert evaluation is not None
     assert evaluation.capacities[0].capacity == 24
     assert _status(window, 0) == "Excede el aforo"
-    assert not page.warning_label.isHidden()
-    assert "no fueron verificadas" in page.warning_label.text()
+    assert not page.warning_banner.isHidden()
+    assert "no fueron verificadas" in page.warning_banner.text
     assert any(
         "aforo es 24" in page.observations.item(i).text() for i in range(page.observations.count())
     )
+    # la guía no dice «completo» si hay observaciones: invita a revisarlas
+    assert window.guide_banner.kind == "warning"
+    assert "observación" in window.guide_banner.text
     combo = page.table.cellWidget(0, COL_CATEGORY)
     assert isinstance(combo, QComboBox)
     combo.setCurrentIndex(combo.findData("sum"))  # sala de uso múltiple: 1 m²/persona → 36

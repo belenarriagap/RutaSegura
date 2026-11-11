@@ -8,10 +8,10 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -36,17 +36,17 @@ from rutasegura.domain.scenario import Scenario
 from rutasegura.presentation.qt_support import BackgroundJob
 from rutasegura.presentation.scenario_dialogs import ComparisonDialog, ScenarioDialog
 from rutasegura.presentation.simulation_viewer import SimulationViewer, format_time
+from rutasegura.presentation.theme import WARNING, set_primary
+from rutasegura.presentation.widgets import (
+    MetricCard,
+    muted,
+    page_help,
+    page_title,
+    section_title,
+)
 from rutasegura.resources.texts import TEXTS, ScenarioTexts, SimulationTexts
 
 Image = npt.NDArray[np.uint8]
-
-
-def _bold(label: QLabel, extra: int = 0) -> QLabel:
-    font = QFont(label.font())
-    font.setBold(True)
-    font.setPointSize(font.pointSize() + extra)
-    label.setFont(font)
-    return label
 
 
 class SimulationPage(QWidget):
@@ -54,6 +54,7 @@ class SimulationPage(QWidget):
 
     error = Signal(str)
     run_finished = Signal(object)  # SimulationRun
+    run_shown = Signal(object)  # SimulationRun | None (al cambiar la corrida mostrada)
     scenario_changed = Signal(object)  # Scenario
 
     def __init__(
@@ -90,7 +91,7 @@ class SimulationPage(QWidget):
         self.seed_spin = QSpinBox()
         self.seed_spin.setRange(0, 2_000_000_000)
         self.seed_spin.valueChanged.connect(self._on_seed)
-        self.run_button = QPushButton(texts.run)
+        self.run_button = set_primary(QPushButton(texts.run))
         self.run_button.clicked.connect(self.start_simulation)
         self.cancel_button = QPushButton(texts.cancel)
         self.cancel_button.clicked.connect(self.cancel_simulation)
@@ -101,28 +102,37 @@ class SimulationPage(QWidget):
         self.status_label = QLabel()
         self.pending_label = QLabel()
         self.pending_label.setWordWrap(True)
-        self.pending_label.setStyleSheet("color: #b9770e;")
+        self.pending_label.setStyleSheet(f"color: {WARNING};")
 
         self.viewer = SimulationViewer(texts)
+        self.total_card = MetricCard(texts.card_total)
+        self.ninety_card = MetricCard(texts.card_ninety)
+        self.evacuated_card = MetricCard(texts.card_evacuated)
+        cards = QGridLayout()
+        cards.setSpacing(8)
+        cards.addWidget(self.total_card, 0, 0, 1, 2)
+        cards.addWidget(self.ninety_card, 1, 0)
+        cards.addWidget(self.evacuated_card, 1, 1)
         self.summary_label = QLabel(texts.no_run)
         self.summary_label.setWordWrap(True)
         self.bottleneck_list = QListWidget()
         self.bottleneck_list.setWordWrap(True)
-        provisional = QLabel(texts.provisional)
-        provisional.setWordWrap(True)
-        provisional.setStyleSheet("color: #7f8c8d;")
+        self.bottleneck_list.setSpacing(2)
+        provisional = muted(texts.provisional)
 
         panel = QWidget()
         panel_layout = QVBoxLayout(panel)
-        panel_layout.addWidget(_bold(QLabel(texts.results_title), 2))
+        panel_layout.setContentsMargins(6, 0, 0, 0)
+        panel_layout.addWidget(section_title(texts.results_title))
+        panel_layout.addLayout(cards)
         panel_layout.addWidget(self.summary_label)
-        panel_layout.addWidget(_bold(QLabel(texts.bottlenecks_title)))
+        panel_layout.addWidget(section_title(texts.bottlenecks_title))
         panel_layout.addWidget(self.bottleneck_list, stretch=1)
         panel_layout.addWidget(provisional)
         splitter = QSplitter()
         splitter.addWidget(self.viewer)
         splitter.addWidget(panel)
-        splitter.setSizes([800, 340])
+        splitter.setSizes([760, 380])
 
         scenario_row = QHBoxLayout()
         scenario_row.addWidget(QLabel(st.label))
@@ -136,11 +146,11 @@ class SimulationPage(QWidget):
         row.addWidget(self.cancel_button)
         row.addWidget(self.progress, stretch=1)
         row.addWidget(self.status_label)
-        help_label = QLabel(texts.help)
-        help_label.setWordWrap(True)
+        row.addStretch(1)
         layout = QVBoxLayout(self)
-        layout.addWidget(_bold(QLabel(texts.title), 5))
-        layout.addWidget(help_label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(page_title(texts.title))
+        layout.addWidget(page_help(texts.help))
         layout.addLayout(scenario_row)
         layout.addLayout(row)
         layout.addWidget(self.pending_label)
@@ -322,6 +332,7 @@ class SimulationPage(QWidget):
         """Muestra una corrida (o ninguna)."""
         self._run = run
         self._show_run(run)
+        self.run_shown.emit(run)
 
     # ------------------------------------------------------------------ ejecución
     def start_simulation(self) -> None:
@@ -400,22 +411,41 @@ class SimulationPage(QWidget):
     # ------------------------------------------------------------------ resultados
     def _show_run(self, run: SimulationRun | None) -> None:
         self.bottleneck_list.clear()
+        t = self._texts
         if run is None:
             self.viewer.set_run(None, None, 1.0)
-            self.summary_label.setText(self._texts.no_run)
+            self.summary_label.setText(t.no_run)
+            for card in (self.total_card, self.ninety_card, self.evacuated_card):
+                card.set_value("—")
             return
-        t = self._texts
         result = run.result
         self.viewer.set_run(run.trajectories, result, run.scale_m_per_px)
-        lines = [t.total_time.format(time=format_time(result.total_time_s))]
-        lines += [t.per_exit.format(name=n, time=format_time(s)) for n, s in result.time_per_exit_s]
+        # Semáforo sin umbrales inventados: rojo si alguien no salió, ámbar si hubo congestión.
+        left = result.agents_total - result.agents_evacuated
+        congestion = len(run.observations)
         if not result.completed:
-            lines.append(
-                t.incomplete.format(
-                    time=format_time(result.total_time_s),
-                    left=result.agents_total - result.agents_evacuated,
-                )
-            )
+            kind, note = "error", t.note_left.format(left=left)
+        elif congestion:
+            kind, note = "warning", t.note_congestion.format(count=congestion)
+        else:
+            kind, note = "success", t.note_no_congestion
+        self.total_card.set_value(format_time(result.total_time_s), note, kind)
+        ninety = result.time_to_evacuate(0.9)
+        self.ninety_card.set_value(
+            "—" if ninety is None else format_time(ninety), t.note_ninety, "info"
+        )
+        self.evacuated_card.set_value(
+            t.card_evacuated_value.format(done=result.agents_evacuated, total=result.agents_total),
+            t.note_all_out if result.completed else t.note_left.format(left=left),
+            "success" if result.completed else "error",
+        )
+        lines = [t.total_time.format(time=format_time(result.total_time_s)), t.per_exit_title + ":"]
+        lines += [
+            "  • " + t.per_exit.format(name=n, time=format_time(s))
+            for n, s in result.time_per_exit_s
+        ]
+        if not result.completed:
+            lines.append(t.incomplete.format(time=format_time(result.total_time_s), left=left))
         self.summary_label.setText("\n".join(lines))
         if not run.observations:
             self.bottleneck_list.addItem(t.no_bottlenecks)

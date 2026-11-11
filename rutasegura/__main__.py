@@ -57,6 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     from rutasegura.application.services import AppServices
     from rutasegura.presentation.main_window import MainWindow
+    from rutasegura.presentation.theme import apply_theme
     from rutasegura.resources.icons import icon_path
     from rutasegura.resources.texts import TEXTS
 
@@ -64,6 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     app = existing if isinstance(existing, QApplication) else QApplication(sys.argv)
     app.setApplicationName(TEXTS.app_name)
     app.setWindowIcon(QIcon(str(icon_path())))
+    apply_theme(app)
     services = AppServices.open()
     try:
         window = MainWindow(services, TEXTS)

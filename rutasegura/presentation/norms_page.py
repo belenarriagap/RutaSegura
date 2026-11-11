@@ -5,12 +5,11 @@ from __future__ import annotations
 import dataclasses
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QHeaderView,
-    QLabel,
     QListWidget,
     QListWidgetItem,
     QSplitter,
@@ -25,6 +24,7 @@ from rutasegura.application.norms_service import NormsService
 from rutasegura.domain.norms import NormEvaluation
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import Scenario
+from rutasegura.presentation.widgets import Banner, page_help, page_title, section_title
 from rutasegura.resources.texts import TEXTS, NormsTexts
 
 COL_NAME, COL_CATEGORY, COL_AREA, COL_CAPACITY, COL_OCCUPANTS, COL_STATUS = range(6)
@@ -47,29 +47,18 @@ class NormsPage(QWidget):
         self._scenario: Scenario | None = None
         self.evaluation: NormEvaluation | None = None
 
-        title = QLabel(texts.title)
-        font = QFont(title.font())
-        font.setPointSize(font.pointSize() + 5)
-        font.setBold(True)
-        title.setFont(font)
-        help_label = QLabel(texts.help)
-        help_label.setWordWrap(True)
-        self.warning_label = QLabel()
-        self.warning_label.setWordWrap(True)
-        self.warning_label.setStyleSheet(
-            "background: #fdebd0; border: 1px solid #e67e22; padding: 6px;"
-        )
+        title = page_title(texts.title)
+        help_label = page_help(texts.help)
+        self.warning_banner = Banner(closable=False)
         self.table = QTableWidget()
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.total_label = QLabel()
-        bold = QFont(self.total_label.font())
-        bold.setBold(True)
-        self.total_label.setFont(bold)
+        self.table.setAlternatingRowColors(True)
+        self.total_label = section_title("")
         self.observations = QListWidget()
         self.observations.setWordWrap(True)
-        observations_title = QLabel(texts.observations_title)
-        observations_title.setFont(bold)
+        self.observations.setSpacing(3)
+        observations_title = section_title(texts.observations_title)
 
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -86,9 +75,10 @@ class NormsPage(QWidget):
         splitter.addWidget(bottom)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(title)
         layout.addWidget(help_label)
-        layout.addWidget(self.warning_label)
+        layout.addWidget(self.warning_banner)
         layout.addWidget(splitter, stretch=1)
 
     @property
@@ -122,8 +112,7 @@ class NormsPage(QWidget):
         except UserFacingError as exc:
             self.table.setRowCount(0)
             self.total_label.setText("")
-            self.warning_label.setText(exc.message)
-            self.warning_label.setVisible(True)
+            self.warning_banner.show_message(exc.message, "warning")
             return
         self.evaluation = evaluation
         headers = [
@@ -169,8 +158,12 @@ class NormsPage(QWidget):
             t.total.format(capacity=evaluation.total_capacity, occupants=evaluation.total_occupants)
         )
         unverified = len(evaluation.unverified_rules)
-        self.warning_label.setText(t.unverified_warning.format(count=unverified))
-        self.warning_label.setVisible(unverified > 0)
+        if unverified:
+            self.warning_banner.show_message(
+                t.unverified_warning.format(count=unverified), "warning"
+            )
+        else:
+            self.warning_banner.dismiss()
         if not evaluation.observations:
             self.observations.addItem(t.no_observations)
         for i, obs in enumerate(evaluation.observations, start=1):

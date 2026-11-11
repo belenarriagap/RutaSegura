@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import numpy.typing as npt
-from PySide6.QtCore import QObject, QPointF, Qt
+from PySide6.QtCore import QObject, QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QGraphicsItem,
@@ -19,6 +19,7 @@ from rutasegura.domain.enums import ElementType
 from rutasegura.domain.geometry import Polygon, Segment
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.presentation.qt_support import to_pixmap
+from rutasegura.resources.texts import TEXTS
 
 KIND_KEY = 0
 INDEX_KEY = 1
@@ -101,7 +102,8 @@ class PlanScene(QGraphicsScene):
         for i, exit_ in enumerate(plan.exits):
             pen = _pen(EXIT_COLOR, 7, dashed=not exit_.confirmed)
             self._add_line(ElementType.EXIT, i, exit_.segment, pen, z=3)
-            label = QGraphicsSimpleTextItem(exit_.name + ("" if exit_.confirmed else " ?"))
+            suffix = "" if exit_.confirmed else TEXTS.editor.proposed_suffix
+            label = QGraphicsSimpleTextItem(exit_.name + suffix)
             label.setBrush(QBrush(EXIT_COLOR))
             label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
             mid = exit_.segment.midpoint
@@ -179,6 +181,24 @@ class PlanScene(QGraphicsScene):
     def all_element_items(self) -> list[QGraphicsItem]:
         """Todos los ítems de elementos (sin fondo ni etiquetas)."""
         return [item for items in self._items.values() for item in items]
+
+    def ref_at(self, point: QPointF, tolerance: float = 3.0) -> ElementRef | None:
+        """Elemento visible más cercano al frente bajo ``point`` (con una tolerancia)."""
+        area = QRectF(point.x() - tolerance, point.y() - tolerance, 2 * tolerance, 2 * tolerance)
+        for item in self.items(
+            area, Qt.ItemSelectionMode.IntersectsItemShape, Qt.SortOrder.DescendingOrder
+        ):
+            ref = self.ref(item)
+            if ref is not None and item.isVisible():
+                return ref
+        return None
+
+    def select_only(self, ref: ElementRef) -> None:
+        """Deja seleccionado solo ese elemento."""
+        self.clearSelection()
+        for item in self.all_element_items():
+            if self.ref(item) == ref:
+                item.setSelected(True)
 
     def selected_refs(self) -> list[ElementRef]:
         """Elementos seleccionados."""

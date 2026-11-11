@@ -6,11 +6,12 @@ import dataclasses
 
 import numpy as np
 import numpy.typing as npt
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QCloseEvent, QFont, QKeySequence
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -25,16 +26,20 @@ from PySide6.QtWidgets import (
 
 import rutasegura
 from rutasegura.application.errors import UserFacingError
+from rutasegura.application.progress import StepState, WizardProgress, wizard_progress
 from rutasegura.application.services import AppServices
 from rutasegura.domain.enums import UseType
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import Scenario
 from rutasegura.presentation.calibration_dialog import CalibrationDialog
+from rutasegura.presentation.icons import step_icon
 from rutasegura.presentation.norms_page import NormsPage
 from rutasegura.presentation.project_dialogs import NewProjectDialog, OpenProjectDialog
 from rutasegura.presentation.report_page import ReportPage
 from rutasegura.presentation.rooms_page import RoomsPage
 from rutasegura.presentation.simulation_page import SimulationPage
+from rutasegura.presentation.theme import set_primary
+from rutasegura.presentation.widgets import Banner, muted
 from rutasegura.presentation.wizard_pages import EditorPage, LoadPlanPage, ScalePage
 from rutasegura.resources.texts import TEXTS, UiTexts
 
@@ -81,6 +86,7 @@ class MainWindow(QMainWindow):
         self._build_central()
         self.statusBar().showMessage(texts.status_ready)
         self._update_steps()
+        self.refresh_guide()
 
     # ----------------------------------------------------------------- construcción
     def _build_menu(self) -> None:
@@ -104,8 +110,13 @@ class MainWindow(QMainWindow):
         file_menu.addAction(quit_action)
 
         edit_menu = self.menuBar().addMenu(t.menu_edit)
-        edit_menu.addAction(self.editor_page.editor.undo_action)
-        edit_menu.addAction(self.editor_page.editor.redo_action)
+        editor = self.editor_page.editor
+        edit_menu.addAction(editor.undo_action)
+        edit_menu.addAction(editor.redo_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(editor.confirm_action)
+        edit_menu.addAction(editor.confirm_all_action)
+        edit_menu.addAction(editor.delete_action)
 
         tools_menu = self.menuBar().addMenu(t.calibration.menu_tools)
         self.calibrate_action = QAction(t.calibration.menu_calibrate, self)
@@ -123,9 +134,7 @@ class MainWindow(QMainWindow):
         self.scale_page = ScalePage(plans, self._texts.wizard)
         self.editor_page = EditorPage(plans, self._texts.wizard, self._texts.editor)
         self.load_page.image_loaded.connect(self._on_image_loaded)
-        self.load_page.next_requested.connect(lambda: self.go_to_step(STEP_SCALE))
         self.scale_page.scale_changed.connect(self._on_scale_changed)
-        self.scale_page.next_requested.connect(lambda: self.go_to_step(STEP_EDIT))
         self.editor_page.editor.plan_changed.connect(self._on_plan_edited)
         self.rooms_page = RoomsPage(plans, self._texts.rooms, self._texts.project)
         self.rooms_page.plan_changed.connect(self._on_plan_edited)
@@ -134,6 +143,7 @@ class MainWindow(QMainWindow):
             self._services.simulations, self._texts.simulation, self._texts.scenarios
         )
         self.simulation_page.scenario_changed.connect(self._on_scenario_changed)
+        self.simulation_page.run_shown.connect(lambda _run: self.refresh_guide())
         self.norms_page = NormsPage(self._services.norms, self._texts.norms)
         self.norms_page.plan_changed.connect(self._on_plan_edited)
         self.report_page = ReportPage(self._services.reports, self._texts.report)
@@ -152,10 +162,24 @@ class MainWindow(QMainWindow):
         t = self._texts
         self.steps_list = QListWidget()
         self.steps_list.setObjectName("wizardSteps")
-        self.steps_list.setMaximumWidth(240)
+        self.steps_list.setIconSize(QSize(22, 22))
         for step in t.wizard_steps:
             self.steps_list.addItem(QListWidgetItem(step))
         self.steps_list.currentRowChanged.connect(self._on_step_selected)
+        title = QLabel(t.app_name)
+        title.setObjectName("sidebarTitle")
+        subtitle = QLabel(t.guide.app_subtitle)
+        subtitle.setObjectName("sidebarSubtitle")
+        sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        sidebar.setFixedWidth(232)
+        side = QVBoxLayout(sidebar)
+        side.setContentsMargins(14, 18, 12, 12)
+        side.addWidget(title)
+        side.addWidget(subtitle)
+        side.addSpacing(16)
+        side.addWidget(self.steps_list, stretch=1)
 
         self.stack = QStackedWidget()
         self.welcome_page = self._build_welcome()
@@ -181,53 +205,128 @@ class MainWindow(QMainWindow):
         self.add_floor_button.clicked.connect(self.add_floor)
         self.delete_floor_button = QPushButton(ft.delete)
         self.delete_floor_button.clicked.connect(self.ask_delete_floor)
-        floor_bar = QHBoxLayout()
+        self.floor_bar = QWidget()
+        self.floor_bar.setObjectName("floorBar")
+        self.floor_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        floor_bar = QHBoxLayout(self.floor_bar)
+        floor_bar.setContentsMargins(10, 6, 10, 6)
         floor_bar.addWidget(QLabel(ft.label))
         floor_bar.addWidget(self.floor_combo)
         floor_bar.addWidget(self.add_floor_button)
         floor_bar.addWidget(self.delete_floor_button)
         floor_bar.addStretch(1)
-        self.floor_bar = QWidget()
-        self.floor_bar.setLayout(floor_bar)
+
+        # Mensajes dentro de la ventana: errores y avisos (se cierran con ✕) y la guía del paso.
+        self.message_banner = Banner(closable=True)
+        self.guide_banner = Banner(closable=False)
+
+        g = t.guide
+        self.prev_button = QPushButton(g.previous)
+        self.prev_button.clicked.connect(lambda: self.go_to_step(self.current_step() - 1))
+        self.next_button = set_primary(QPushButton(g.next))
+        self.next_button.clicked.connect(lambda: self.go_to_step(self.current_step() + 1))
+        self.nav_label = QLabel()
+        self.nav_label.setObjectName("navStep")
+        self.nav_bar = QWidget()
+        self.nav_bar.setObjectName("navBar")
+        self.nav_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        nav = QHBoxLayout(self.nav_bar)
+        nav.setContentsMargins(10, 6, 10, 6)
+        nav.addWidget(self.prev_button)
+        nav.addStretch(1)
+        nav.addWidget(self.nav_label)
+        nav.addStretch(1)
+        nav.addWidget(self.next_button)
+
         right = QVBoxLayout()
-        right.setContentsMargins(0, 0, 0, 0)
+        right.setContentsMargins(14, 12, 14, 12)
+        right.setSpacing(8)
         right.addWidget(self.floor_bar)
+        right.addWidget(self.message_banner)
+        right.addWidget(self.guide_banner)
         right.addWidget(self.stack, stretch=1)
+        right.addWidget(self.nav_bar)
 
         layout = QHBoxLayout()
-        layout.addWidget(self.steps_list)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(sidebar)
         layout.addLayout(right, stretch=1)
         central = QWidget()
         central.setLayout(layout)
         self.setCentralWidget(central)
 
     def _build_welcome(self) -> QWidget:
-        t = self._texts
+        t, p = self._texts, self._texts.project
         title = QLabel(t.welcome_title)
         title.setObjectName("welcomeTitle")
-        font = QFont(title.font())
-        font.setPointSize(font.pointSize() + 8)
-        font.setBold(True)
-        title.setFont(font)
-        body = QLabel(t.welcome_body)
-        body.setWordWrap(True)
-        new_button = QPushButton(t.project.welcome_new)
+        body = muted(t.welcome_body)
+        new_button = set_primary(QPushButton(p.welcome_new))
         new_button.clicked.connect(self.ask_new_project)
-        open_button = QPushButton(t.project.welcome_open)
+        open_button = QPushButton(p.welcome_open)
         open_button.clicked.connect(self.ask_open_project)
         buttons = QHBoxLayout()
         buttons.addWidget(new_button)
         buttons.addWidget(open_button)
         buttons.addStretch(1)
+
+        self.recent_list = QListWidget()
+        self.recent_list.setObjectName("recentProjects")
+        self.recent_list.setMinimumHeight(160)
+        self.recent_list.itemActivated.connect(self._on_recent_activated)
+        self.recent_empty = muted(p.recent_empty)
+        recent_title = QLabel(p.recent_title)
+        recent_title.setObjectName("sectionTitle")
+
+        card = QFrame()
+        card.setObjectName("welcomeCard")
+        card.setMaximumWidth(720)
+        inner = QVBoxLayout(card)
+        inner.setContentsMargins(32, 28, 32, 28)
+        inner.setSpacing(12)
+        inner.addWidget(title)
+        inner.addWidget(body)
+        inner.addSpacing(6)
+        inner.addLayout(buttons)
+        inner.addSpacing(14)
+        inner.addWidget(recent_title)
+        inner.addWidget(self.recent_empty)
+        inner.addWidget(self.recent_list)
+        inner.addWidget(muted(p.recent_hint))
+
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(card, stretch=4)
+        row.addStretch(1)
         layout = QVBoxLayout()
         layout.addStretch(1)
-        layout.addWidget(title)
-        layout.addWidget(body)
-        layout.addLayout(buttons)
+        layout.addLayout(row)
         layout.addStretch(2)
         page = QWidget()
         page.setLayout(layout)
         return page
+
+    def refresh_recent_projects(self) -> None:
+        """Lista de proyectos en la pantalla de bienvenida (del más reciente al más antiguo)."""
+        p = self._texts.project
+        labels = dict(p.use_labels)
+        self.recent_list.clear()
+        projects = self._services.projects.list_projects()
+        for project_id, project in projects:
+            date = project.created_at.strftime("%d/%m/%Y") if project.created_at else "—"
+            text = p.recent_item.format(
+                name=project.name, use=labels.get(project.use.value, project.use.value), date=date
+            )
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, project_id)
+            self.recent_list.addItem(item)
+        self.recent_list.setVisible(bool(projects))
+        self.recent_empty.setVisible(not projects)
+
+    def _on_recent_activated(self, item: QListWidgetItem) -> None:
+        project_id = item.data(Qt.ItemDataRole.UserRole)
+        if project_id is not None:
+            self.open_project(int(project_id))
 
     # ----------------------------------------------------------------- proyectos
     def ask_new_project(self) -> None:
@@ -354,10 +453,8 @@ class MainWindow(QMainWindow):
         self._load_current(FloorPlan(level=new_level), None)
         self._dirty = True
         self.save()
-        self.statusBar().showMessage(
-            ft.added.format(name=ft.name.format(number=new_level + 1)), 8000
-        )
         self.go_to_step(STEP_LOAD)
+        self.show_message(ft.added.format(name=ft.name.format(number=new_level + 1)), "info")
         return True
 
     def ask_delete_floor(self) -> None:
@@ -434,6 +531,9 @@ class MainWindow(QMainWindow):
         if self.project_id is None:
             self.stack.setCurrentWidget(self.welcome_page)
             return
+        step = max(0, min(step, len(ACTIVE_STEPS) - 1))
+        if step != self.current_step():
+            self.message_banner.dismiss()
         self._save_if_dirty()
         self.steps_list.blockSignals(True)
         self.steps_list.setCurrentRow(step)
@@ -473,6 +573,7 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.simulation_page)
         else:
             self.stack.setCurrentWidget(self.pending_page)
+        self.refresh_guide()
 
     def current_step(self) -> int:
         """Paso seleccionado."""
@@ -493,8 +594,72 @@ class MainWindow(QMainWindow):
         self.save_action.setEnabled(self.project_id is not None)
         self.calibrate_action.setEnabled(self.project_id is not None)
         self.floor_bar.setVisible(self.project_id is not None)
+        self.nav_bar.setVisible(self.project_id is not None)
         if self.project_id is None:
+            self.refresh_recent_projects()
             self.stack.setCurrentWidget(self.welcome_page)
+
+    # ----------------------------------------------------------------- guía del asistente
+    def progress(self) -> WizardProgress:
+        """Avance del piso en edición: qué pasos están completos y qué falta."""
+        run = self.simulation_page.current_run
+        levels = [plan.level for plan, _ in self.all_floors()]
+        return wizard_progress(
+            self._plan,
+            has_image=self._image is not None,
+            scenario=self._scenario,
+            result=run.result if run is not None else None,
+            is_lowest_floor=self._plan.level == min(levels),
+        )
+
+    def refresh_guide(self) -> None:
+        """Actualiza los íconos de los pasos, el recuadro «Qué falta» y los botones."""
+        g, names = self._texts.guide, self._texts.wizard_steps
+        has_project = self.project_id is not None
+        progress = self.progress()
+        for row in range(self.steps_list.count()):
+            state = progress.steps[row].state if has_project else StepState.TODO
+            self.steps_list.item(row).setIcon(step_icon(state, row + 1, enabled=has_project))
+        step = self.current_step()
+        if not has_project or step not in ACTIVE_STEPS:
+            self.guide_banner.dismiss()
+            return
+        self.prev_button.setEnabled(step > 0)
+        self.next_button.setEnabled(step < len(ACTIVE_STEPS) - 1)
+        self.nav_label.setText(
+            g.step_of.format(number=step + 1, total=len(ACTIVE_STEPS), name=names[step])
+        )
+        blocker = progress.blocker(step)
+        own = progress.steps[step]
+        if blocker is not None:
+            target = blocker.step
+            self.guide_banner.show_message(
+                g.before_step.format(number=target + 1, issue=g.issue_text(blocker.issue.value)),
+                "warning",
+                action_text=g.go_to.format(number=target + 1),
+                action=lambda: self.go_to_step(target),
+            )
+        elif own.issue is not None:
+            warning = own.state is StepState.WARNING
+            template = g.review if warning else g.missing
+            self.guide_banner.show_message(
+                template.format(issue=g.issue_text(own.issue.value)),
+                "warning" if warning else "info",
+            )
+        elif step == STEP_NORMS and self._norm_observations():
+            self.guide_banner.show_message(
+                g.norms_observations.format(count=self._norm_observations()), "warning"
+            )
+        elif own.state is StepState.DONE:
+            last = step == len(ACTIVE_STEPS) - 1
+            text = g.step_done_last if last else g.step_done.format(next=names[step + 1])
+            self.guide_banner.show_message(text, "success")
+        else:
+            self.guide_banner.dismiss()
+
+    def _norm_observations(self) -> int:
+        evaluation = self.norms_page.evaluation
+        return len(evaluation.observations) if evaluation is not None else 0
 
     # ----------------------------------------------------------------- cambios en los pasos
     def _on_image_loaded(self, image: Image) -> None:
@@ -509,21 +674,25 @@ class MainWindow(QMainWindow):
             self._scenario = dataclasses.replace(self._scenario, occupancies=kept)
             self._scenario_dirty = True
         self.editor_page.set_content(self._plan, image)
+        self.refresh_guide()
 
     def _on_scale_changed(self, scale: float) -> None:
         # El editor se recarga con la nueva escala al entrar al paso 3 (go_to_step).
         self._plan = dataclasses.replace(self._plan, scale_m_per_px=scale)
         self._dirty = True
+        self.refresh_guide()
 
     def _on_plan_edited(self, plan: FloorPlan) -> None:
         if plan != self._plan:
             self._plan = plan
             self._dirty = True
+            self.refresh_guide()
 
     def _on_scenario_changed(self, scenario: Scenario) -> None:
         if scenario != self._scenario:
             self._scenario = scenario
             self._scenario_dirty = True
+            self.refresh_guide()
 
     # ----------------------------------------------------------------- calibración
     def calibration_dialog(self) -> CalibrationDialog | None:
@@ -540,7 +709,7 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         dialog.applied.connect(
-            lambda: self.statusBar().showMessage(self._texts.calibration.applied, 6000)
+            lambda: self.show_message(self._texts.calibration.applied, "success")
         )
         return dialog
 
@@ -552,8 +721,13 @@ class MainWindow(QMainWindow):
 
     # ----------------------------------------------------------------- varios
     def show_error(self, message: str) -> None:
-        """Muestra un mensaje de error comprensible."""
-        QMessageBox.warning(self, self._texts.project.error_title, message)
+        """Muestra un error comprensible en una franja roja, sin ventana emergente."""
+        self.message_banner.show_message(message, "error")
+
+    def show_message(self, message: str, kind: str = "info") -> None:
+        """Muestra un aviso en una franja (los de éxito se ocultan solos)."""
+        timeout = 8000 if kind == "success" else 0
+        self.message_banner.show_message(message, kind, timeout_ms=timeout)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - API de Qt
         """Guarda automáticamente al cerrar."""

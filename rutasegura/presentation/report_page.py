@@ -5,12 +5,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtCore import QStandardPaths, Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from rutasegura.application.report_service import ReportService
 from rutasegura.presentation.qt_support import BackgroundJob
+from rutasegura.presentation.theme import set_primary
+from rutasegura.presentation.widgets import page_help, page_title
 from rutasegura.resources.texts import TEXTS, ReportTexts
 
 
@@ -34,18 +36,14 @@ class ReportPage(QWidget):
         self.last_path: Path | None = None
         self.job: BackgroundJob | None = None
 
-        title = QLabel(texts.title)
-        font = QFont(title.font())
-        font.setPointSize(font.pointSize() + 5)
-        font.setBold(True)
-        title.setFont(font)
-        help_label = QLabel(texts.help)
-        help_label.setWordWrap(True)
+        title = page_title(texts.title)
+        help_label = page_help(texts.help)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         self.result_label = QLabel()
         self.result_label.setWordWrap(True)
-        self.generate_button = QPushButton(texts.generate)
+        self.result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.generate_button = set_primary(QPushButton(texts.generate))
         self.generate_button.clicked.connect(self.ask_and_generate)
         self.open_button = QPushButton(texts.open)
         self.open_button.clicked.connect(self.open_report)
@@ -55,6 +53,7 @@ class ReportPage(QWidget):
         buttons.addWidget(self.open_button)
         buttons.addStretch(1)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(title)
         layout.addWidget(help_label)
         layout.addWidget(self.status_label)

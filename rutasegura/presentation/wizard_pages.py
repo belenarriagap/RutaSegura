@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 from PySide6.QtCore import QLineF, QPointF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPen
+from PySide6.QtGui import QBrush, QColor, QPen
 from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
@@ -30,24 +30,11 @@ from rutasegura.presentation.editor.editor_widget import PlanEditor
 from rutasegura.presentation.editor.scene import PlanScene
 from rutasegura.presentation.editor.view import PlanView, Tool
 from rutasegura.presentation.qt_support import run_in_background
+from rutasegura.presentation.theme import SUCCESS, WARNING, set_primary
+from rutasegura.presentation.widgets import muted, page_help, page_title
 from rutasegura.resources.texts import TEXTS, EditorTexts, WizardTexts
 
 Image = npt.NDArray[np.uint8]
-
-
-def _title(text: str) -> QLabel:
-    label = QLabel(text)
-    font = QFont(label.font())
-    font.setPointSize(font.pointSize() + 5)
-    font.setBold(True)
-    label.setFont(font)
-    return label
-
-
-def _help(text: str) -> QLabel:
-    label = QLabel(text)
-    label.setWordWrap(True)
-    return label
 
 
 def _marker(point: QPointF, color: str) -> QGraphicsEllipseItem:
@@ -70,7 +57,6 @@ class LoadPlanPage(QWidget):
 
     image_loaded = Signal(object)  # imagen nueva (array RGB)
     error = Signal(str)
-    next_requested = Signal()
 
     def __init__(
         self,
@@ -87,9 +73,9 @@ class LoadPlanPage(QWidget):
         self._corners: list[QPointF] = []
         self._markers: list[QGraphicsEllipseItem] = []
 
-        self.choose_button = QPushButton(texts.choose_file)
+        self.choose_button = set_primary(QPushButton(texts.choose_file))
         self.choose_button.clicked.connect(self.choose_file)
-        self.file_label = QLabel(texts.no_file)
+        self.file_label = muted(texts.no_file)
         self.page_label = QLabel(texts.page_label)
         self.page_spin = QSpinBox()
         self.page_spin.setMinimum(1)
@@ -101,8 +87,6 @@ class LoadPlanPage(QWidget):
         self.undo_straighten_button.clicked.connect(self.undo_straighten)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
-        self.next_button = QPushButton(texts.next)
-        self.next_button.clicked.connect(self.next_requested)
 
         self.scene = PlanScene(self)
         self.view = PlanView(self.scene)
@@ -120,15 +104,13 @@ class LoadPlanPage(QWidget):
         )
         for widget in right:
             row.addWidget(widget)
-        bottom = QHBoxLayout()
-        bottom.addWidget(self.status_label, stretch=1)
-        bottom.addWidget(self.next_button)
         layout = QVBoxLayout(self)
-        layout.addWidget(_title(texts.load_title))
-        layout.addWidget(_help(texts.load_help))
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(page_title(texts.load_title))
+        layout.addWidget(page_help(texts.load_help))
         layout.addLayout(row)
+        layout.addWidget(self.status_label)
         layout.addWidget(self.view, stretch=1)
-        layout.addLayout(bottom)
         self._refresh()
 
     @property
@@ -236,7 +218,7 @@ class LoadPlanPage(QWidget):
         self.undo_straighten_button.setVisible(
             self._original is not None and self._original is not self._image
         )
-        self.next_button.setEnabled(has_image)
+        self.status_label.setVisible(self.straighten_button.isChecked())
         if self.straighten_button.isChecked():
             self.status_label.setText(self._texts.straighten_help.format(count=len(self._corners)))
         else:
@@ -251,7 +233,6 @@ class ScalePage(QWidget):
 
     scale_changed = Signal(float)
     error = Signal(str)
-    next_requested = Signal()
 
     def __init__(
         self,
@@ -278,27 +259,23 @@ class ScalePage(QWidget):
         self.meters_spin.setSingleStep(0.1)
         self.meters_spin.setValue(1.0)
         self.meters_spin.setSuffix(" m")
-        self.apply_button = QPushButton(texts.scale_apply)
+        self.apply_button = set_primary(QPushButton(texts.scale_apply))
         self.apply_button.clicked.connect(self.apply_scale)
         self.result_label = QLabel()
         self.result_label.setWordWrap(True)
-        self.next_button = QPushButton(texts.next)
-        self.next_button.clicked.connect(self.next_requested)
 
         row = QHBoxLayout()
         row.addWidget(QLabel(texts.scale_meters))
         row.addWidget(self.meters_spin)
         row.addWidget(self.apply_button)
-        row.addStretch(1)
-        bottom = QHBoxLayout()
-        bottom.addWidget(self.result_label, stretch=1)
-        bottom.addWidget(self.next_button)
+        row.addSpacing(12)
+        row.addWidget(self.result_label, stretch=1)
         layout = QVBoxLayout(self)
-        layout.addWidget(_title(texts.scale_title))
-        layout.addWidget(_help(texts.scale_help))
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(page_title(texts.scale_title))
+        layout.addWidget(page_help(texts.scale_help))
         layout.addLayout(row)
         layout.addWidget(self.view, stretch=1)
-        layout.addLayout(bottom)
         self._show_scale()
 
     @property
@@ -348,10 +325,10 @@ class ScalePage(QWidget):
     def _show_scale(self) -> None:
         if self._scale:
             self.result_label.setText(self._texts.scale_result.format(px_per_m=1.0 / self._scale))
-            self.result_label.setStyleSheet("color: #1e8449;")
+            self.result_label.setStyleSheet(f"color: {SUCCESS}; font-weight: 600;")
         else:
             self.result_label.setText(self._texts.scale_missing)
-            self.result_label.setStyleSheet("color: #b9770e;")
+            self.result_label.setStyleSheet(f"color: {WARNING};")
 
 
 # --------------------------------------------------------------------------- paso 3
@@ -378,14 +355,15 @@ class EditorPage(QWidget):
         self.editor = PlanEditor(editor_texts)
         self.detect_button = QPushButton(texts.detect)
         self.detect_button.clicked.connect(self.detect)
-        self.status_label = QLabel()
-        self.status_label.setWordWrap(True)
+        self.status_label = muted()
+        self.editor.error.connect(self.error)
         row = QHBoxLayout()
         row.addWidget(self.detect_button)
         row.addWidget(self.status_label, stretch=1)
         layout = QVBoxLayout(self)
-        layout.addWidget(_title(texts.editor_title))
-        layout.addWidget(_help(texts.editor_help))
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(page_title(texts.editor_title))
+        layout.addWidget(page_help(texts.editor_help))
         layout.addLayout(row)
         layout.addWidget(self.editor, stretch=1)
 

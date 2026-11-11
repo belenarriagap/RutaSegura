@@ -8,7 +8,7 @@ from collections.abc import Sequence
 import numpy as np
 import numpy.typing as npt
 from PySide6.QtCore import QPointF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPen, QPolygonF
+from PySide6.QtGui import QBrush, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -36,6 +36,8 @@ from rutasegura.domain.plan import FloorPlan, Room
 from rutasegura.domain.scenario import Scenario
 from rutasegura.presentation.editor.scene import PlanScene
 from rutasegura.presentation.editor.view import PlanView, Tool
+from rutasegura.presentation.theme import set_primary
+from rutasegura.presentation.widgets import page_help, page_title, section_title
 from rutasegura.resources.texts import TEXTS, ProjectTexts, RoomsTexts
 
 Image = npt.NDArray[np.uint8]
@@ -73,7 +75,7 @@ class RoomsPage(QWidget):
         self.scene = PlanScene(self)
         self.view = PlanView(self.scene)
         self.view.polygon_drawn.connect(self._on_polygon)
-        self.detect_button = QPushButton(texts.detect)
+        self.detect_button = set_primary(QPushButton(texts.detect))
         self.detect_button.clicked.connect(self.detect_rooms)
         self.draw_button = QPushButton(texts.draw)
         self.draw_button.setCheckable(True)
@@ -84,11 +86,9 @@ class RoomsPage(QWidget):
         self.delete_button.clicked.connect(self.delete_selected_room)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
-        self.total_label = QLabel()
-        bold = QFont(self.total_label.font())
-        bold.setBold(True)
-        self.total_label.setFont(bold)
+        self.total_label = section_title("")
         self.table = QTableWidget()
+        self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.itemChanged.connect(self._on_item_changed)
@@ -108,14 +108,10 @@ class RoomsPage(QWidget):
         splitter.addWidget(right)
         splitter.setSizes([600, 500])
 
-        title = QLabel(texts.title)
-        font = QFont(title.font())
-        font.setPointSize(font.pointSize() + 5)
-        font.setBold(True)
-        title.setFont(font)
-        help_label = QLabel(texts.help)
-        help_label.setWordWrap(True)
+        title = page_title(texts.title)
+        help_label = page_help(texts.help)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(title)
         layout.addWidget(help_label)
         layout.addLayout(buttons)

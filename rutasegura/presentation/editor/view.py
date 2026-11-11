@@ -8,6 +8,7 @@ from enum import Enum, auto
 from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QColor,
+    QContextMenuEvent,
     QKeyEvent,
     QMouseEvent,
     QPainter,
@@ -67,6 +68,8 @@ class PlanView(QGraphicsView):
     point_picked = Signal(QPointF)
     polygon_drawn = Signal(list)  # list[QPointF] (3 o más vértices)
     delete_requested = Signal()
+    context_menu_requested = Signal(QPoint, QPointF)  # (posición global, punto de la escena)
+    double_clicked = Signal(QPointF)  # punto de la escena (herramienta Seleccionar)
 
     def __init__(self, scene: QGraphicsScene, parent: QWidget | None = None) -> None:
         super().__init__(scene, parent)
@@ -221,7 +224,23 @@ class PlanView(QGraphicsView):
             self.finish_polygon()
             event.accept()
             return
+        if self._tool is Tool.SELECT and event.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit(self.mapToScene(event.position().toPoint()))
+            event.accept()
+            return
         super().mouseDoubleClickEvent(event)
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:  # noqa: N802
+        if self._tool is Tool.POLYGON or self._start is not None:
+            event.accept()  # el clic derecho cierra el polígono; no hay menú
+            return
+        self.context_menu_requested.emit(event.globalPos(), self.mapToScene(event.pos()))
+        event.accept()
+
+    def scene_tolerance(self, pixels: float = 6.0) -> float:
+        """Distancia en unidades de la escena equivalente a ``pixels`` en pantalla."""
+        zoom = self.zoom_factor()
+        return pixels / zoom if zoom > 0 else pixels
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
         if self._tool is Tool.POLYGON and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):

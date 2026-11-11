@@ -30,7 +30,11 @@ class ProjectTexts:
     saved: str = "Cambios guardados."
     opened: str = "Proyecto abierto: {name}"
     welcome_new: str = "Crear un proyecto nuevo"
-    welcome_open: str = "Abrir un proyecto existente"
+    welcome_open: str = "Abrir otro proyecto…"
+    recent_title: str = "Sus proyectos"
+    recent_empty: str = "Todavía no hay proyectos. Empiece creando uno nuevo."
+    recent_item: str = "{name}\n{use} · creado el {date}"
+    recent_hint: str = "Doble clic para abrir."
     error_title: str = "No se pudo completar la acción"
 
 
@@ -68,9 +72,10 @@ class WizardTexts:
     )
     editor_title: str = "Paso 3. Corregir plano"
     editor_help: str = (
-        "Revise lo que encontró el sistema. Los elementos en naranja tienen baja confianza y las "
-        "salidas en línea discontinua son propuestas: selecciónelas y pulse «Confirmar salida». "
-        "En edificios de varios pisos, dibuje cada escalera en todos los pisos que une."
+        "Revise lo que encontró el sistema y corrija lo necesario. Las salidas en línea "
+        "discontinua son propuestas: haga doble clic sobre ellas para confirmarlas. Clic derecho "
+        "sobre un elemento para más opciones. En edificios de varios pisos, dibuje cada escalera "
+        "en todos los pisos que une."
     )
     detect: str = "Detectar automáticamente"
     detecting: str = "Buscando muros y puertas… esto puede tardar unos segundos."
@@ -107,12 +112,35 @@ class EditorTexts:
     layer_stairs: str = "Escaleras"
     layer_obstacles: str = "Obstáculos"
     layer_safe_zones: str = "Zonas seguras"
-    hint_select: str = "Haga clic en un elemento para seleccionarlo; Supr lo borra."
+    hint_select: str = (
+        "Clic: seleccionar. Doble clic en una salida propuesta: confirmarla. Clic derecho: más "
+        "opciones. Supr: borrar."
+    )
     hint_segment: str = "Arrastre para dibujar. Mantenga Mayús para líneas rectas."
     hint_area: str = "Arrastre para dibujar un rectángulo."
     hint_zoom: str = "Rueda del mouse: acercar o alejar. Botón central: desplazar."
+    tip_select: str = "Seleccionar elementos. Clic derecho sobre uno para más opciones."
+    tip_wall: str = "Dibujar un muro: arrastre de un extremo al otro."
+    tip_door: str = "Marcar una puerta: arrastre sobre el muro; se encaja sola y abre el hueco."
+    tip_exit: str = "Marcar una salida al exterior: arrastre sobre un muro exterior."
+    tip_stair: str = "Marcar una escalera: arrastre un rectángulo."
+    tip_obstacle: str = "Marcar un mueble u obstáculo que no se puede atravesar."
+    tip_safe_zone: str = "Marcar una zona segura (patio, explanada) a la que se puede evacuar."
+    tip_shortcut: str = "{tip}\nAtajo: {key}"
+    legend_title: str = "Leyenda y capas"
+    legend_dashed: str = "Línea discontinua: salida propuesta, falta confirmarla."
+    legend_low: str = "Naranja: detectado con poca seguridad; revíselo."
+    menu_confirm: str = "Confirmar salida"
+    menu_rename: str = "Cambiar nombre…"
+    menu_delete: str = "Borrar"
+    rename_title: str = "Cambiar nombre"
+    rename_label: str = "Nombre:"
+    name_empty: str = "Escriba un nombre."
+    name_in_use: str = "Ya existe otro elemento llamado «{name}» en este piso."
+    cmd_rename: str = "Cambiar nombre a «{name}»"
     pending_exits: str = "Hay {count} salida(s) propuesta(s) por confirmar."
     exit_name: str = "Salida {number}"
+    proposed_suffix: str = " (por confirmar)"
     stair_name: str = "Escalera {letter}"
     cmd_add: str = "Agregar {what}"
     cmd_delete: str = "Borrar {count} elemento(s)"
@@ -167,6 +195,16 @@ class SimulationTexts:
     time: str = "{now} / {end}"
     evacuated: str = "Evacuados: {done} de {total}"
     results_title: str = "Resultados"
+    card_total: str = "Tiempo total"
+    card_ninety: str = "90 % evacuado"
+    card_evacuated: str = "Personas evacuadas"
+    card_evacuated_value: str = "{done} de {total}"
+    note_all_out: str = "Salieron todas las personas."
+    note_left: str = "Quedaron {left} persona(s) dentro."
+    note_congestion: str = "{count} zona(s) con congestión."
+    note_no_congestion: str = "Sin congestión sostenida."
+    note_ninety: str = "Momento en que salió el 90 % de las personas."
+    per_exit_title: str = "Tiempo por salida"
     total_time: str = "Tiempo total de evacuación: {time}"
     incomplete: str = (
         "Atención: después de {time} todavía quedaban {left} personas dentro. "
@@ -183,6 +221,53 @@ class SimulationTexts:
         "Hay {count} salida(s) propuesta(s) sin confirmar: se tratarán como cerradas. Si son "
         "salidas reales, confírmelas en el paso 3."
     )
+
+
+@dataclass(frozen=True, slots=True)
+class GuideTexts:
+    """Guía del asistente: navegación, «Qué falta» y mensajes."""
+
+    app_subtitle: str = "Evacuación ante sismos"
+    previous: str = "‹ Anterior"
+    next: str = "Siguiente ›"
+    step_of: str = "Paso {number} de {total}: {name}"
+    go_to: str = "Ir al paso {number}"
+    before_step: str = "Antes de este paso (paso {number}): {issue}"
+    missing: str = "Qué falta: {issue}"
+    review: str = "Para revisar: {issue}"
+    step_done: str = "Este paso está completo. Puede seguir con «{next}»."
+    step_done_last: str = "Este paso está completo."
+    norms_observations: str = (
+        "Para revisar: hay {count} observación(es) normativa(s) abajo, cada una con su "
+        "recomendación. Puede simular igual y corregir después."
+    )
+    issues: tuple[tuple[str, str], ...] = (
+        ("sin_imagen", "cargue la foto o el PDF del plano del local."),
+        ("sin_escala", "defina la escala: dibuje una línea sobre una medida que conozca."),
+        ("sin_muros", "dibuje los muros del plano o use «Detectar automáticamente»."),
+        (
+            "sin_salidas",
+            "marque al menos una salida (confirmada) o una zona segura. Dibuje la salida sobre "
+            "un muro exterior con la herramienta Salida.",
+        ),
+        (
+            "salidas_por_confirmar",
+            "hay salidas propuestas sin confirmar; se tratarán como cerradas. Confírmelas con "
+            "doble clic o con «Confirmar todas».",
+        ),
+        ("sin_ambientes", "marque los ambientes del local (detectarlos o dibujarlos)."),
+        ("sin_ocupantes", "indique cuántas personas hay en cada ambiente."),
+        ("sin_simulacion", "pulse «Simular» para ver cómo se evacúa el local."),
+        (
+            "simulacion_incompleta",
+            "en la última simulación no salieron todas las personas. Revise las salidas y "
+            "puertas en el paso 3.",
+        ),
+    )
+
+    def issue_text(self, code: str) -> str:
+        """Texto de un faltante (por su código)."""
+        return dict(self.issues).get(code, code)
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,6 +445,7 @@ class UiTexts:
     norms: NormsTexts = field(default_factory=NormsTexts)
     scenarios: ScenarioTexts = field(default_factory=ScenarioTexts)
     floors: FloorTexts = field(default_factory=FloorTexts)
+    guide: GuideTexts = field(default_factory=GuideTexts)
     calibration: CalibrationTexts = field(default_factory=CalibrationTexts)
     report: ReportTexts = field(default_factory=ReportTexts)
 
@@ -373,13 +459,13 @@ SPANISH = UiTexts(
         "durante un sismo. Le guiaremos paso a paso, desde la foto del plano hasta el informe."
     ),
     wizard_steps=(
-        "1. Cargar plano",
-        "2. Escala",
-        "3. Corregir plano",
-        "4. Ambientes y ocupantes",
-        "5. Revisar norma",
-        "6. Simular",
-        "7. Informe",
+        "Cargar plano",
+        "Escala",
+        "Corregir plano",
+        "Ambientes y ocupantes",
+        "Revisar norma",
+        "Simular",
+        "Informe",
     ),
     menu_file="&Archivo",
     menu_edit="&Editar",

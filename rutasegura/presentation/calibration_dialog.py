@@ -26,6 +26,7 @@ from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import RealDrill, Scenario
 from rutasegura.presentation.qt_support import BackgroundJob
 from rutasegura.presentation.simulation_viewer import format_time
+from rutasegura.presentation.theme import set_primary
 from rutasegura.resources.texts import TEXTS, CalibrationTexts
 
 
@@ -101,7 +102,7 @@ class CalibrationDialog(QDialog):
         bold = QFont(self.result_label.font())
         bold.setBold(True)
         self.result_label.setFont(bold)
-        self.run_button = QPushButton(texts.run)
+        self.run_button = set_primary(QPushButton(texts.run))
         self.run_button.clicked.connect(self.start)
         self.cancel_button = QPushButton(texts.cancel)
         self.cancel_button.clicked.connect(self.cancel)
