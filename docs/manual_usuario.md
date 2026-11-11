@@ -44,10 +44,22 @@ Un **proyecto** es un local: un colegio, una oficina o una tienda.
 
 - **Proyecto nuevo:** use **Crear un proyecto nuevo** (o el menú Archivo › Nuevo proyecto) y
   escriba el nombre, el tipo de local y, si quiere, la dirección.
-- **Proyecto existente:** use **Abrir un proyecto existente**.
+- **Proyecto existente:** haga doble clic sobre él en la lista **Sus proyectos**, o use **Abrir
+  otro proyecto…**.
 
 Los cambios se guardan solos cada vez que pasa de un paso a otro y al cerrar el programa. También
 puede guardar con **Ctrl+S**.
+
+### Cómo lo guía el programa
+
+- **Barra de pasos (izquierda):** cada paso muestra un círculo con su número. Se vuelve un **✓
+  verde** cuando el paso está completo y un **! ámbar** cuando conviene revisar algo.
+- **Recuadro «Qué falta» (arriba):** dice qué le falta al paso en que está. Si falta algo de un
+  paso anterior, ofrece un botón para ir a ese paso, por ejemplo **Ir al paso 2**.
+- **Anterior / Siguiente (abajo):** pasan de un paso a otro. Puede saltar a cualquier paso desde
+  la barra de la izquierda.
+- **Mensajes:** los errores y avisos aparecen como una franja de color dentro de la ventana, no
+  como ventanas emergentes. Ciérrelos con **×**.
 
 ---
 
@@ -92,26 +104,44 @@ Al entrar, el programa **busca automáticamente** muros, puertas y salidas. Revi
 | Azul | Muro |
 | Verde | Puerta |
 | Rojo | Salida |
+| Morado | Escalera |
+| Gris | Obstáculo (mueble) |
+| Verde claro | Zona segura |
 | Naranja discontinuo | Algo que el programa no está seguro de haber detectado bien |
+
+El recuadro **Leyenda y capas** (a la derecha) repite estos colores. Cada casilla oculta o muestra
+un tipo de elemento.
 
 ### Herramientas
 
-| Herramienta | Qué hace |
-|---|---|
-| **Seleccionar** | Hace clic sobre un elemento para elegirlo. **Supr** lo borra. |
-| **Muro, Puerta, Salida** | Arrastre para dibujar. Con **Mayús** la línea queda recta. |
-| **Escalera, Obstáculo, Zona segura** | Arrastre para dibujar un rectángulo. |
-| **Deshacer / Rehacer** | Ctrl+Z / Ctrl+Y. |
-| **Ver todo** | Muestra el plano completo. |
+| Herramienta | Tecla | Qué hace |
+|---|---|---|
+| **Seleccionar** | V | Clic para elegir un elemento. **Supr** lo borra. |
+| **Muro** | M | Arrastre para dibujar. Con **Mayús** la línea queda recta. |
+| **Puerta** | P | Arrastre sobre el muro: se encaja sola en él y le abre el hueco. |
+| **Salida** | S | Igual que la puerta, pero sobre un muro exterior. |
+| **Escalera** | E | Arrastre para dibujar un rectángulo. |
+| **Obstáculo** | O | Muebles u objetos que no se pueden atravesar. |
+| **Zona segura** | Z | Patio o explanada a la que se puede evacuar. |
+| **Deshacer / Rehacer** | Ctrl+Z / Ctrl+Y | |
+| **Ver todo** | | Muestra el plano completo. |
 
+- **Clic derecho sobre un elemento:** abre un menú para confirmarlo, cambiarle el nombre o
+  borrarlo.
+- **Doble clic sobre una salida o escalera:** cambia su nombre.
 - **Moverse por el plano:** la rueda del mouse acerca y aleja; el botón central desplaza la vista.
-- **Capas visibles:** permiten ocultar el fondo o un tipo de elemento para ver mejor.
 
 ### Salidas propuestas
 
-Las salidas que encontró el programa aparecen **en línea discontinua con «?»**. Selecciónelas y
-pulse **Confirmar salida**, o bórrelas si no son salidas. No se puede simular con salidas sin
-confirmar.
+Las salidas que encontró el programa aparecen **en línea discontinua, con «(por confirmar)»**.
+
+- **Para confirmar una:** haga **doble clic** sobre ella, o use clic derecho › **Confirmar
+  salida**.
+- **Para confirmarlas todas:** pulse **Confirmar todas**.
+- **Si no es una salida:** bórrela.
+
+Las salidas sin confirmar se tratan como cerradas en la simulación. Las salidas que usted dibuja
+quedan confirmadas.
 
 **Zonas seguras:** si su local tiene una zona segura interna, como un patio, márquela. Las personas
 que llegan a ella cuentan como evacuadas.
@@ -157,10 +187,17 @@ que llegan a ella cuentan como evacuadas.
 2. Al terminar se reproduce la animación.
    - **Controles:** reproducir y pausa, velocidad (0.5× a 8×) y la barra de tiempo.
    - **Mapa de calor:** muestra dónde se acumuló la gente.
-3. A la derecha verá:
+3. A la derecha verá tres tarjetas:
    - el **tiempo total de evacuación**;
-   - el tiempo de cada salida;
-   - los **cuellos de botella**, del más grave al menos grave.
+   - el **tiempo para evacuar al 90 %**;
+   - las **personas evacuadas**.
+
+   El color indica el resultado:
+   - **verde:** salieron todos sin congestión;
+   - **ámbar:** hubo zonas de congestión;
+   - **rojo:** alguien no pudo salir.
+
+   Debajo verá el tiempo de cada salida y los **cuellos de botella**, del más grave al menos grave.
 
 **Semilla:** con la misma semilla y los mismos datos, la simulación da siempre el mismo resultado.
 
@@ -240,9 +277,14 @@ Más detalles en [calibracion.md](calibracion.md).
 Corríjalos en el paso 3. La detección funciona mejor con planos limpios, en blanco y negro y bien
 enfocados. Si la foto está torcida, enderécela en el paso 1.
 
-**Dice que las personas de un ambiente «no tienen una salida alcanzable».**
+**Dice que las personas de un ambiente «no pueden llegar a ninguna salida».**
 Revise que ese ambiente tenga una puerta, que no haya un muro cerrando el paso y que el local
 tenga al menos una salida confirmada.
+
+**Dice que un ambiente «quedó conectado con el exterior».**
+El contorno del edificio tiene un hueco: un muro exterior que no llega a cerrar en una esquina. En
+el paso 3, acerque la vista a las esquinas y dibuje el tramo de muro que falta. Las salidas
+reales se marcan con la herramienta **Salida**, no como puerta.
 
 **Dice que una escalera «no tiene una escalera correspondiente» en otro piso.**
 Dibuje la escalera también en el piso de abajo, en el mismo lugar. Si ese piso tiene varias
@@ -250,7 +292,8 @@ escaleras, dibújelas en el mismo orden que en el piso de arriba para que tengan
 nombres.
 
 **Dice que hay salidas propuestas sin confirmar.**
-Vuelva al paso 3, seleccione las salidas con «?» y pulse **Confirmar salida**, o bórrelas.
+Vuelva al paso 3 y haga doble clic sobre cada salida «(por confirmar)», o pulse **Confirmar
+todas**. Si alguna no es una salida, bórrela.
 
 **Cargué un plano nuevo y desapareció lo que había corregido.**
 Al cargar otra imagen, el plano anterior ya no corresponde. Hay que corregir el plano nuevo.

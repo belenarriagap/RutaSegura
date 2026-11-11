@@ -1,6 +1,6 @@
 """Genera las capturas del manual de usuario (docs/img/*.png) con un plano sintético.
 
-Uso:  uv run python scripts/capture_screenshots.py
+Uso:  uv run python scripts/capture_screenshots.py [carpeta_de_salida]
 Trabaja en una base de datos temporal; no toca los proyectos del usuario.
 """
 
@@ -30,6 +30,7 @@ from rutasegura.presentation.main_window import (  # noqa: E402
     STEP_SIMULATE,
     MainWindow,
 )
+from rutasegura.presentation.theme import apply_theme  # noqa: E402
 from tests.fixtures.synthetic_plans import generate_plan  # noqa: E402
 
 OUT = ROOT / "docs" / "img"
@@ -52,8 +53,12 @@ def offscreen(widget: QWidget, width: int = 1400, height: int = 850) -> None:
 
 
 def main() -> None:
+    global OUT
+    if len(sys.argv) > 1:
+        OUT = Path(sys.argv[1])
     OUT.mkdir(parents=True, exist_ok=True)
     app = QApplication(sys.argv[:1])
+    apply_theme(app)
     with tempfile.TemporaryDirectory() as tmp:
         services = AppServices.open(Path(tmp) / "db" / "rs.db")
         try:
@@ -130,6 +135,10 @@ def capture(app: QApplication, services: AppServices, tmp: Path) -> None:
 
     w.go_to_step(STEP_REPORT)
     save(app, w, "09_informe")
+
+    w.add_floor()  # piso 2: selector de pisos y guía del paso 1
+    w.load_page.open_file(plan_file)
+    save(app, w, "10_varios_pisos")
     w._dirty = w._scenario_dirty = False
     w.close()
 

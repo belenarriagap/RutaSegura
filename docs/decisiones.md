@@ -418,3 +418,22 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
 - **Efecto:** el rendimiento no cambia (unos 480 pasos/s con 500 agentes). En pasillos más
   angostos que la persona, el modelo la deja pasar rozando: el estrechamiento se refleja en la
   densidad y en la velocidad, no en un bloqueo permanente.
+
+## ADR-034: mensajes dentro de la ventana y guía de pasos
+
+- **Fecha:** 2026-11-11 · **Estado:** aceptada
+- **Contexto:** los usuarios no son técnicos (RNF03, meta SUS ≥ 70). Las ventanas emergentes
+  interrumpen y se cierran sin leer, y no quedaba claro qué faltaba para avanzar.
+- **Decisión:**
+  - Errores y avisos se muestran en una franja de color sobre el paso, con **×** para cerrarla. Se
+    limpia al cambiar de paso. Solo las confirmaciones destructivas siguen como diálogo.
+  - Una segunda franja fija, «Qué falta», se calcula con `wizard_progress` (capa de aplicación,
+    sin Qt). Devuelve códigos (`Issue`) y la presentación les pone texto.
+  - Tema propio sobre el estilo Fusion, con paleta clara fija, para verse igual en Windows 10 y 11
+    con o sin modo oscuro. Los íconos se dibujan con `QPainter`, sin archivos ni descargas.
+- **Alternativas:**
+  - `QWizard` de Qt: obliga a un orden lineal y no permite volver libremente a un paso.
+  - Paquetes de íconos externos (por ejemplo, QtAwesome): suman una dependencia y fuentes.
+- **Limitación:** el estado de los pasos se calcula para el piso en edición. En edificios de
+  varios pisos hay que revisar cada piso.
+

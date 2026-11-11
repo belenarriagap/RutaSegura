@@ -4,6 +4,35 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Interfaz más amigable (2026-11-11)
+
+#### Agregado
+- **Tema visual propio:** colores claros, letra más grande, botones redondeados y un botón azul
+  para la acción principal de cada paso. Es local y no descarga fuentes ni íconos.
+- **Barra de pasos con estado:** cada paso muestra ✓ cuando está completo y ! cuando hay algo que
+  revisar. El estado lo calcula `application/progress.py` (sin Qt, con pruebas).
+- **Recuadro «Qué falta»:** dice qué le falta al paso actual. Si falta algo de un paso anterior,
+  ofrece un botón para ir a ese paso. En el paso 5 invita a revisar las observaciones normativas.
+- **Botones «‹ Anterior» y «Siguiente ›»** comunes a todos los pasos.
+- **Bienvenida con «Sus proyectos»:** lista de proyectos para abrirlos con doble clic.
+- **Editor:**
+  - íconos con los colores del plano en las herramientas y en las capas, que sirven de leyenda;
+  - atajos de teclado (V, M, P, S, E, O, Z) y ayudas al pasar el mouse;
+  - menú de clic derecho para confirmar, cambiar el nombre o borrar un elemento;
+  - doble clic para confirmar una salida propuesta o cambiar el nombre de una salida, escalera o
+    zona segura (con deshacer);
+  - las salidas propuestas dicen «(por confirmar)» en lugar de «?».
+- **Resultados en tarjetas:** tiempo total, tiempo al 90 % y evacuados, con color de semáforo.
+  Rojo si alguien no salió, ámbar si hubo congestión y verde si no. No se usan umbrales de tiempo
+  inventados.
+
+#### Cambiado
+- **Errores y avisos en franjas** de color dentro de la ventana, en lugar de ventanas emergentes
+  (ADR-034). Las confirmaciones de borrado siguen siendo diálogos.
+- El aviso de reglas no verificadas del paso 5 usa la misma franja.
+- «Confirmar salida», «Confirmar todas» y «Borrar» también están en el menú Editar.
+- Capturas del manual regeneradas y manual actualizado.
+
 ### Correcciones posteriores al Hito 6 (2026-11-10)
 
 #### Corregido
