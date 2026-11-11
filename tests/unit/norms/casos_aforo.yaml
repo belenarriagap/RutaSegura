@@ -1,0 +1,98 @@
+# Casos de prueba de aforo (CLAUDE.md §5.4).
+#
+# LOS RESULTADOS ESPERADOS SON PROVISIONALES: se calcularon con las reglas actuales, que todavía
+# no están verificadas. Reemplace «aforo_esperado» por el resultado oficial (guía de cálculo de
+# aforo de CENEPRED) y cambie «confirmado» a true. Si un caso no coincide, la prueba lo mostrará.
+#
+# Cada caso es un ambiente rectangular de ancho × largo metros.
+
+casos:
+  - id: CASO-01
+    descripcion: Aula de 6 × 8 m
+    uso: educacion
+    categoria: aula
+    ancho_m: 6
+    largo_m: 8
+    aforo_esperado: 32
+    confirmado: false
+
+  - id: CASO-02
+    descripcion: Aula de 7 × 7 m
+    uso: educacion
+    categoria: aula
+    ancho_m: 7
+    largo_m: 7
+    aforo_esperado: 32
+    confirmado: false
+
+  - id: CASO-03
+    descripcion: Laboratorio de 10 × 8 m
+    uso: educacion
+    categoria: taller
+    ancho_m: 10
+    largo_m: 8
+    aforo_esperado: 16
+    confirmado: false
+
+  - id: CASO-04
+    descripcion: Sala de uso múltiple de 12 × 10 m
+    uso: educacion
+    categoria: sum
+    ancho_m: 12
+    largo_m: 10
+    aforo_esperado: 120
+    confirmado: false
+
+  - id: CASO-05
+    descripcion: Dirección de 4 × 5 m
+    uso: educacion
+    categoria: administrativo
+    ancho_m: 4
+    largo_m: 5
+    aforo_esperado: 2
+    confirmado: false
+
+  - id: CASO-06
+    descripcion: Oficina abierta de 10 × 10 m
+    uso: oficinas
+    categoria: oficina
+    ancho_m: 10
+    largo_m: 10
+    aforo_esperado: 10
+    confirmado: false
+
+  - id: CASO-07
+    descripcion: Oficina de 5 × 4 m
+    uso: oficinas
+    categoria: oficina
+    ancho_m: 5
+    largo_m: 4
+    aforo_esperado: 2
+    confirmado: false
+
+  - id: CASO-08
+    descripcion: Tienda de 8 × 6 m
+    uso: comercio
+    categoria: tienda
+    ancho_m: 8
+    largo_m: 6
+    aforo_esperado: 17
+    confirmado: false
+
+  - id: CASO-09
+    descripcion: Tienda de 15 × 10 m
+    uso: comercio
+    categoria: tienda
+    ancho_m: 15
+    largo_m: 10
+    aforo_esperado: 53
+    confirmado: false
+
+  - id: CASO-10
+    descripcion: Pasillo de 2 × 20 m (sin aforo propio)
+    uso: educacion
+    categoria: pasillo
+    ancho_m: 2
+    largo_m: 20
+    aforo_esperado: null
+    confirmado: false
