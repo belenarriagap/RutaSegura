@@ -62,6 +62,8 @@ class DetectionResult:
     wall_thickness_px: float
 
 
+EDGE_CORRECTION_PX = 1.0
+
 EMPTY_RESULT = DetectionResult((), (), (), 0.0)
 
 
@@ -108,7 +110,9 @@ def detect_plan(image: RGBImage, params: VisionParams | None = None) -> Detectio
             if run is None or run[1] - run[0] < 0.75 * door_min:
                 prev[1] = nxt[1]  # el "hueco" tiene muro: es el mismo muro
                 continue
-            prev[1], nxt[0] = run
+            # Corrección de borde: el tramo se mide entre muestras (medio píxel por lado) y el
+            # antialias del muro invade el hueco ~1 px. Sin esto los vanos salen ~2 px angostos.
+            prev[1], nxt[0] = run[0] - EDGE_CORRECTION_PX, run[1] + EDGE_CORRECTION_PX
             pieces.append(nxt)
             door_after.append(run[1] - run[0] <= 1.1 * door_max)
         pieces[0][0] = extend_to_mask_end(

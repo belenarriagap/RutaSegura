@@ -65,6 +65,19 @@ def test_door_widths_are_accurate(plans: list[SyntheticPlan]) -> None:
         assert error_m < 0.1
 
 
+def test_opening_widths_have_no_systematic_bias(plans: list[SyntheticPlan]) -> None:
+    """Un sesgo de pocos cm cambia el resultado de la verificación de anchos mínimos."""
+    errors = []
+    for plan in plans:
+        result = detect_plan(plan.image, VisionParams(scale_m_per_px=plan.scale_m_per_px))
+        found = [d.segment for d in result.doors] + [e.segment for e in result.exits]
+        for truth in plan.openings:
+            nearest = min(found, key=lambda s: s.midpoint.distance_to(truth.midpoint))
+            if nearest.midpoint.distance_to(truth.midpoint) < 20:
+                errors.append((nearest.length - truth.length) * plan.scale_m_per_px)
+    assert abs(float(np.mean(errors))) < 0.02
+
+
 def test_detection_is_deterministic(plans: list[SyntheticPlan]) -> None:
     plan = plans[2]
     assert detect_plan(plan.image) == detect_plan(plan.image)
