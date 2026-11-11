@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from rutasegura.application.norms_service import NormsService
 from rutasegura.application.plan_import import PlanImportService
 from rutasegura.application.projects import ProjectService
+from rutasegura.application.report_service import ReportService
 from rutasegura.application.simulation_service import SimulationService
 from rutasegura.data.database import Database, default_database_path
 
@@ -18,6 +20,8 @@ class AppServices:
     projects: ProjectService
     plans: PlanImportService
     simulations: SimulationService
+    norms: NormsService
+    reports: ReportService
     database: Database
 
     @classmethod
@@ -25,10 +29,15 @@ class AppServices:
         """Abre la base local (creándola si no existe) y arma los servicios."""
         path = db_path or default_database_path()
         database = Database.open(path)
+        norms = NormsService()
+        projects = ProjectService(database, path.parent / "planos")
+        simulations = SimulationService(database, path.parent / "trayectorias", norms=norms)
         return cls(
-            projects=ProjectService(database, path.parent / "planos"),
+            projects=projects,
             plans=PlanImportService(),
-            simulations=SimulationService(database, path.parent / "trayectorias"),
+            simulations=simulations,
+            norms=norms,
+            reports=ReportService(projects, simulations, norms),
             database=database,
         )
 

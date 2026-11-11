@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from rutasegura.application.errors import OperationCancelled, UserFacingError
+from rutasegura.application.norms_service import NormsService
 from rutasegura.data.database import Database
 from rutasegura.data.repositories import NotFoundError
 from rutasegura.data.trajectories import load_run, save_run
@@ -58,11 +59,16 @@ class SimulationService:
     """Casos de uso de escenario y simulación."""
 
     def __init__(
-        self, db: Database, runs_dir: Path, params: SimulationParams | None = None
+        self,
+        db: Database,
+        runs_dir: Path,
+        params: SimulationParams | None = None,
+        norms: NormsService | None = None,
     ) -> None:
         self._db = db
         self._runs_dir = runs_dir
         self.params = params or SimulationParams()
+        self._norms = norms
 
     # ------------------------------------------------------------------ escenario y perfiles
     def profiles(self) -> list[PersonProfile]:
@@ -125,13 +131,20 @@ class SimulationService:
         observations = tuple(
             self._congestion(b, plan, scale) for b in output.result.bottlenecks[:5]
         )
+        # Las observaciones normativas del plano se guardan junto con la corrida (tabla
+        # «observacion», CLAUDE.md §6); la corrida muestra solo las de congestión.
+        norm_observations = (
+            self._norms.evaluate(plan, scenario).observations if self._norms is not None else ()
+        )
         scenario_id = self.save_scenario(project_id, scenario)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         path = self._runs_dir / f"proyecto_{project_id}" / f"escenario_{scenario_id}_{stamp}.npz"
         save_run(path, output.result, output.trajectories)
         result = dataclasses.replace(output.result, trajectories_path=str(path))
         with self._db.unit_of_work() as uow:
-            simulation_id = uow.simulations.add(scenario_id, result, observations)
+            simulation_id = uow.simulations.add(
+                scenario_id, result, observations + norm_observations
+            )
         return SimulationRun(simulation_id, result, output.trajectories, observations, scale)
 
     def last_run(self, project_id: int) -> SimulationRun | None:
@@ -146,7 +159,11 @@ class SimulationService:
             if not runs:
                 return None
             simulation_id, summary = runs[-1]
-            observations = tuple(uow.simulations.observations(simulation_id))
+            observations = tuple(
+                o
+                for o in uow.simulations.observations(simulation_id)
+                if o.kind is ObservationType.CONGESTION
+            )
             try:
                 plan_scale = uow.floors.get(project_id, 0).scale_m_per_px
             except NotFoundError:

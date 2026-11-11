@@ -79,7 +79,11 @@ strict = true
 
 [[tool.mypy.overrides]]
 # PyMuPDF no tipa el constructor de Document ni Rect; solo se usa en la carga de archivos.
-module = ["rutasegura.engines.vision.images", "tests.unit.engines.vision.*"]
+module = [
+    "rutasegura.engines.vision.images",
+    "tests.unit.engines.vision.*",
+    "tests.integration.test_report",
+]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
@@ -119,4 +123,5 @@ dev = [
     "pytest-socket>=0.8.1",
     "ruff>=0.17.4",
     "types-pyyaml>=6.0.12.20261103",
+    "types-reportlab>=5.1.0.20261104",
 ]
