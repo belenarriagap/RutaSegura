@@ -307,3 +307,37 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
     las observaciones de congestión y las normativas del plano en ese momento;
   - el paso 5 y el informe recalculan las normativas con el plano actual, para reflejar los
     cambios hechos después de simular.
+
+## ADR-026: variantes como copias proporcionales del escenario base
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - cada variante guarda su propia ocupación (tabla `ocupacion`, CLAUDE.md §6), calculada como la
+    del base por un porcentaje (método del mayor resto, para que el total sea exacto);
+  - al editarla, se vuelve a calcular desde el base actual;
+  - la semilla inicial es la del base.
+- **Alternativa:** guardar solo el porcentaje y recalcular al simular. Siempre estaría
+  sincronizada con el base, pero requiere otra columna y hace menos explícito qué se simuló.
+
+## ADR-027: calibración con dos factores globales y una semilla
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - se ajustan un factor de reacción (media y desviación) y uno de velocidad, comunes a todos los
+    perfiles, con una rejilla de 6 × 6;
+  - el error es el RMSE de los errores relativos del tiempo total y de las salidas medidas; a
+    igual error gana la combinación más cercana a (1, 1);
+  - se usa una sola semilla, para comparar las combinaciones en las mismas condiciones;
+  - la ocupación se escala a los participantes del simulacro.
+- **Alternativas:** factores por perfil (más parámetros que datos en un simulacro típico),
+  algoritmo genético (opcional según la especificación) o promediar varias semillas (más preciso
+  y más lento).
+
+## ADR-028: tiempo para evacuar al 90 % como indicador de comparación
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** al comparar «base» con «salida bloqueada», el tiempo total salió igual. Lo define
+  la persona que reacciona más tarde, la misma en ambos escenarios porque usan la misma semilla.
+  La diferencia real estaba en el flujo (a los 30 s: 50 evacuados frente a 23).
+- **Decisión:** el comparador y el informe muestran también el tiempo para evacuar al 50 % y al
+  90 %, calculados con la curva de evacuados.

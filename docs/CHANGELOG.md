@@ -4,6 +4,41 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Hito 5: escenarios y calibración (2026-11-10)
+
+#### Agregado
+- **Escenarios «qué pasa si» (RF10):**
+  - variantes del escenario base con un porcentaje de ocupación y salidas bloqueadas;
+  - se pueden renombrar y eliminar;
+  - cada escenario guarda su semilla y su última simulación;
+  - el paso 6 tiene un selector de escenario.
+- **Comparador:** dos escenarios lado a lado, con animación y mapa de calor, un botón «Reproducir
+  ambos» y una tabla con la diferencia B − A de estos indicadores:
+  - personas y salidas bloqueadas;
+  - tiempo total y tiempo para evacuar al 50 % y al 90 %;
+  - evacuados;
+  - cuellos de botella;
+  - tiempo por salida.
+- **Informe PDF:** agrega la comparación de escenarios cuando hay dos o más simulados.
+- **Calibración (RF11),** en el menú «Herramientas»:
+  - se registra el simulacro real, con fecha, participantes, tiempo total y tiempos por salida;
+  - búsqueda en rejilla de los factores de reacción y velocidad (36 combinaciones), que minimiza
+    el RMSE de los errores relativos;
+  - muestra el error antes y después, con la meta de quedar por debajo de 20 %;
+  - un botón aplica los factores a los perfiles;
+  - corre en segundo plano y se puede cancelar.
+- **Motor `engines/calibration/grid_search.py`:** es puro, recibe la función de evaluación como
+  parámetro y tiene 100 % de cobertura.
+- **`SimulationResult.time_to_evacuate(fracción)`:** devuelve el tiempo para evacuar a una fracción
+  de las personas, calculado con la curva de evacuados.
+- **Guía de uso:** `docs/calibracion.md`.
+
+#### Cambiado
+- `SimulationService` separa la simulación sin guardar (`simulate`) del guardado (`run`). También
+  agrega `list_scenarios`, `save_variant`, `delete_scenario` y `last_run` por escenario.
+- Nuevo método `ScenarioRepository.rename`.
+- Nuevo menú «Herramientas».
+
 ### Hito 4: normas e informe (2026-11-10)
 
 #### Agregado
