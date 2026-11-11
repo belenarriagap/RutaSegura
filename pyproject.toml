@@ -117,6 +117,7 @@ skip_covered = true
 [dependency-groups]
 dev = [
     "mypy>=2.4.1",
+    "pyinstaller>=6.22.3",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "pytest-qt>=4.5.0",

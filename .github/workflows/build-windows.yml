@@ -1,0 +1,50 @@
+name: Paquete Windows
+
+# Se ejecuta a mano (pestaña Actions) o al publicar una etiqueta de versión (v0.1.0, …).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  paquete:
+    name: PyInstaller + instalador
+    runs-on: windows-latest
+    env:
+      UV_LINK_MODE: copy
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Instalar dependencias (fijadas en uv.lock)
+        run: uv sync --locked
+
+      - name: Inno Setup (si el runner no lo trae)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Construir, autoprobar y empaquetar
+        run: uv run python scripts/build_windows.py
+
+      - name: Publicar artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: RutaSegura-windows
+          path: |
+            dist/*.zip
+            dist/*.exe
+            dist/autoprueba.txt
+          if-no-files-found: error
