@@ -88,3 +88,35 @@ def room_with_patio() -> FloorPlan:
         safe_zones=(SafeZone(rect(7, 1, 2, 2), "Patio"),),
         rooms=plan.rooms,
     )
+
+
+def two_floor_building(
+    stair_name: str = "Escalera A", stair_width: float = 1.2
+) -> tuple[FloorPlan, FloorPlan]:
+    """Piso 1 (nivel 0) con salida y piso 2 (nivel 1) sin salidas; una escalera los une."""
+    from rutasegura.domain.plan import Stair
+
+    ground = single_room()
+    stair = Stair(rect(0.5, 0.5, stair_width, 2.0), name=stair_name)
+    ground = FloorPlan(
+        level=0,
+        scale_m_per_px=SCALE,
+        walls=ground.walls,
+        exits=ground.exits,
+        stairs=(stair,),
+        rooms=(Room("Hall", UseType.EDUCATION, rect(0, 0, 10, 6)),),
+    )
+    closed = [
+        Wall(_seg(0, 0, 10, 0)),
+        Wall(_seg(0, 6, 10, 6)),
+        Wall(_seg(0, 0, 0, 6)),
+        Wall(_seg(10, 0, 10, 6)),
+    ]
+    upper = FloorPlan(
+        level=1,
+        scale_m_per_px=SCALE,
+        walls=tuple(closed),
+        stairs=(stair,),
+        rooms=(Room("Aula 201", UseType.EDUCATION, rect(0, 0, 10, 6)),),
+    )
+    return ground, upper

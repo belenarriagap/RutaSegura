@@ -82,6 +82,7 @@ class Simulation:
         seed: int,
         profile_names: Sequence[str] = (),
         distance: FloatArray | None = None,
+        record: bool = True,
     ) -> None:
         self.grid = grid
         self.agents = agents
@@ -112,7 +113,9 @@ class Simulation:
         self._frames_status: list[npt.NDArray[np.int8]] = []
         self._curve_t: list[float] = []
         self._curve_n: list[int] = []
-        self._record()
+        self._recording = record
+        if record:
+            self._record()
 
     # ------------------------------------------------------------------ estado
     @property
@@ -224,7 +227,7 @@ class Simulation:
 
         self.time_s += dt
         self.steps += 1
-        if self.steps % self._record_every == 0:
+        if self._recording and self.steps % self._record_every == 0:
             self._record()
 
     def _density(self, pos: FloatArray) -> FloatArray:

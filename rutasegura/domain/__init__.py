@@ -9,6 +9,7 @@ from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, Room, SafeZo
 from rutasegura.domain.project import Project
 from rutasegura.domain.results import (
     Bottleneck,
+    FloorMap,
     Observation,
     SimulationResult,
     SimulationSummary,
@@ -24,6 +25,7 @@ __all__ = [
     "Door",
     "ElementType",
     "Exit",
+    "FloorMap",
     "FloorPlan",
     "NormEvaluation",
     "NormRule",

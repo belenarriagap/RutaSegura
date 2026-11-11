@@ -230,7 +230,11 @@ class FloorRepository:
             add(
                 ElementType.STAIR,
                 polygon_to_geojson(stair.area),
-                {"conecta_con_nivel": stair.connects_to_level, "confirmada": stair.confirmed},
+                {
+                    "conecta_con_nivel": stair.connects_to_level,
+                    "confirmada": stair.confirmed,
+                    "nombre": stair.name,
+                },
             )
         for obstacle in plan.obstacles:
             add(ElementType.OBSTACLE, polygon_to_geojson(obstacle.area), {})
@@ -272,6 +276,7 @@ class FloorRepository:
                             polygon_from_geojson(geometry),
                             None if level is None else int(level),
                             bool(props.get("confirmada", True)),
+                            str(props.get("nombre", "")),
                         )
                     )
                 case ElementType.OBSTACLE:

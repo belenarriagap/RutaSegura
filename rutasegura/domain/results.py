@@ -16,10 +16,21 @@ from rutasegura.domain.geometry import Point
 class Bottleneck:
     """Zona con densidad alta sostenida."""
 
-    location: Point  # metros
+    location: Point  # metros, en el sistema de coordenadas de su piso
     mean_density: float  # personas/m²
     duration_s: float
     severity: float  # mayor = peor; se usa para ordenar el ranking
+    level: int = 0  # piso donde ocurre
+
+
+@dataclass(frozen=True, eq=False, slots=True)
+class FloorMap:
+    """Mapa de calor de un piso (densidad acumulada por celda de su grilla)."""
+
+    level: int
+    density_map: npt.NDArray[np.float64]
+    grid_origin_m: tuple[float, float]
+    cell_size_m: float
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -44,10 +55,17 @@ class SimulationResult:
     completed: bool = True
     grid_origin_m: tuple[float, float] = (0.0, 0.0)
     cell_size_m: float = 0.4
+    floor_maps: tuple[FloorMap, ...] = ()  # varios pisos: un mapa por piso
 
     def __post_init__(self) -> None:
         if self.curve_times_s.shape != self.curve_evacuated.shape:
             raise ValueError("La curva de evacuados necesita tiempos y conteos del mismo largo.")
+
+    def maps(self) -> tuple[FloorMap, ...]:
+        """Mapas de calor por piso (en un solo piso, el mapa principal como nivel 0)."""
+        if self.floor_maps:
+            return self.floor_maps
+        return (FloorMap(0, self.density_map, self.grid_origin_m, self.cell_size_m),)
 
     def time_to_evacuate(self, fraction: float) -> float | None:
         """Primer instante registrado en que salió al menos ``fraction`` de las personas.
@@ -69,7 +87,9 @@ class Trajectories:
     """Posiciones registradas cada cierto tiempo, para reproducir la animación.
 
     ``positions`` está en metros, con forma (cuadros, agentes, 2); ``status`` usa
-    ``AgentStatus``. ``profile_index`` indexa ``profile_names``.
+    ``AgentStatus``. ``profile_index`` indexa ``profile_names``. Con varios pisos, ``level`` dice
+    en qué piso está cada persona en cada cuadro (−1 = bajando por una escalera) y sus
+    posiciones están en las coordenadas de ese piso.
     """
 
     times_s: npt.NDArray[np.float64]  # (cuadros,)
@@ -78,9 +98,12 @@ class Trajectories:
     radius_m: npt.NDArray[np.float32]  # (agentes,)
     profile_index: npt.NDArray[np.int32]  # (agentes,)
     profile_names: tuple[str, ...]
+    level: npt.NDArray[np.int8] | None = None  # (cuadros, agentes)
 
     def __post_init__(self) -> None:
         frames, agents = self.status.shape
+        if self.level is not None and self.level.shape != (frames, agents):
+            raise ValueError("Las trayectorias tienen dimensiones inconsistentes.")
         if self.positions.shape != (frames, agents, 2) or self.times_s.shape != (frames,):
             raise ValueError("Las trayectorias tienen dimensiones inconsistentes.")
         if self.radius_m.shape != (agents,) or self.profile_index.shape != (agents,):
@@ -95,6 +118,12 @@ class Trajectories:
     def agent_count(self) -> int:
         """Cantidad de agentes."""
         return int(self.status.shape[1])
+
+    def levels_at(self, frame: int) -> npt.NDArray[np.int8]:
+        """Piso de cada persona en un cuadro (todas en el piso 0 si es un solo piso)."""
+        if self.level is None:
+            return np.zeros(self.agent_count, dtype=np.int8)
+        return np.asarray(self.level[frame], dtype=np.int8)
 
 
 @dataclass(frozen=True, slots=True)

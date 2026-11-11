@@ -64,6 +64,7 @@ class Stair:
     area: Polygon
     connects_to_level: int | None = None
     confirmed: bool = True
+    name: str = ""  # las escaleras de pisos contiguos se emparejan por nombre
 
 
 @dataclass(frozen=True, slots=True)

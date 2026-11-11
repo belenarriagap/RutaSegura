@@ -46,6 +46,12 @@ class NavGrid:
     origin: tuple[float, float]
     target_ids: npt.NDArray[np.int16]  # -1 = no es objetivo; si no, índice en target_names
     target_names: tuple[str, ...]
+    # Para cada objetivo: índice de la escalera del plano que representa, o -1 (salida o zona).
+    target_stairs: tuple[int, ...] = ()
+
+    def stair_of(self, target: int) -> int:
+        """Escalera asociada a un objetivo (−1 si es una salida o zona segura)."""
+        return self.target_stairs[target] if target < len(self.target_stairs) else -1
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -114,8 +120,13 @@ def build_grid(
     blocked_exits: Collection[str] = (),
     cell_size: float = CELL_SIZE_M,
     margin_m: float = 1.2,
+    stairs_as_targets: bool = False,
 ) -> NavGrid:
-    """Construye la grilla de un piso. Requiere que el plano tenga escala."""
+    """Construye la grilla de un piso. Requiere que el plano tenga escala.
+
+    Las escaleras son celdas transitables. Con ``stairs_as_targets`` (pisos altos de un edificio
+    de varios pisos) además son objetivos: quien llega a una escalera baja al piso inferior.
+    """
     scale = plan.scale_m_per_px
     if scale is None:
         raise ValueError("El plano no tiene escala; defínala en el paso 2.")
@@ -126,10 +137,14 @@ def build_grid(
     obstacles = [polygon_to_m(o.area, scale) for o in plan.obstacles]
     zones = [(z.name, polygon_to_m(z.area, scale)) for z in plan.safe_zones]
     rooms = [polygon_to_m(r.area, scale) for r in plan.rooms]
+    stairs = [polygon_to_m(st.area, scale) for st in plan.stairs if st.confirmed]
+    stair_indices = [i for i, st in enumerate(plan.stairs) if st.confirmed]
 
     exit_segments = [segment_to_m(e.segment, scale) for e in plan.exits]
     points = [p for s in walls + doors + exit_segments for p in (s.start, s.end)]
-    points += [p for poly in obstacles + rooms + [z for _, z in zones] for p in poly.vertices]
+    points += [
+        p for poly in obstacles + rooms + stairs + [z for _, z in zones] for p in poly.vertices
+    ]
     if not points:
         raise ValueError("El plano está vacío: no hay muros ni ambientes.")
     xs = [p.x for p in points]
@@ -158,12 +173,19 @@ def build_grid(
     for seg in doors:
         line(seg, CellType.DOOR, cv2.LINE_8)
 
+    for poly in stairs:
+        stair_mask = np.zeros_like(cells)
+        cv2.fillPoly(stair_mask, [grid._to_cv(poly.vertices)], 1, cv2.LINE_8, _SHIFT)
+        cells[(stair_mask > 0) & (cells == int(CellType.FREE))] = int(CellType.STAIR)
+
     names: list[str] = []
+    kinds: list[int] = []
     for exit_ in active_exits:
         before = cells == int(CellType.EXIT)
         line(segment_to_m(exit_.segment, scale), CellType.EXIT, cv2.LINE_4)
         target_ids[(cells == int(CellType.EXIT)) & ~before] = len(names)
         names.append(exit_.name or f"Salida {len(names) + 1}")
+        kinds.append(-1)
     for i, (name, poly) in enumerate(zones):
         zone_mask = np.zeros_like(cells)
         cv2.fillPoly(zone_mask, [grid._to_cv(poly.vertices)], 1, cv2.LINE_8, _SHIFT)
@@ -171,11 +193,20 @@ def build_grid(
         cells[free_zone] = int(CellType.SAFE_ZONE)
         target_ids[free_zone] = len(names)
         names.append(name or f"Zona segura {i + 1}")
+        kinds.append(-1)
+    if stairs_as_targets:
+        for index, poly in zip(stair_indices, stairs, strict=True):
+            stair_mask = np.zeros_like(cells)
+            cv2.fillPoly(stair_mask, [grid._to_cv(poly.vertices)], 1, cv2.LINE_8, _SHIFT)
+            stair_cells = (stair_mask > 0) & (cells == int(CellType.STAIR))
+            target_ids[stair_cells] = len(names)
+            names.append(plan.stairs[index].name or f"Escalera {index + 1}")
+            kinds.append(index)
 
     _mark_outside(cells)
     # Las zonas seguras que quedaron afuera no son alcanzables por dentro: dejan de ser objetivo.
     target_ids[cells == int(CellType.OUTSIDE)] = -1
-    return NavGrid(cells.astype(np.int8), cell_size, origin, target_ids, tuple(names))
+    return NavGrid(cells.astype(np.int8), cell_size, origin, target_ids, tuple(names), tuple(kinds))
 
 
 def _mark_outside(cells: npt.NDArray[np.uint8]) -> None:

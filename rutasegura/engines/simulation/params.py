@@ -30,6 +30,11 @@ class SimulationParams:
     # Repulsión de muros: A_w·exp((r − d_w)/B_w)
     wall_strength: float = 5.0  # m/s², PROVISIONAL
     wall_range_m: float = 0.2  # PROVISIONAL
+    # Escaleras (varios pisos): tiempo de bajada = recorrido / (velocidad · factor) y capacidad
+    # de entrada = flujo específico · ancho de la escalera.
+    stair_travel_m: float = 8.0  # recorrido por piso (dos tramos y descanso), PROVISIONAL
+    stair_speed_factor: float = 0.5  # velocidad al bajar respecto de la horizontal, PROVISIONAL
+    stair_specific_flow: float = 1.1  # personas/(s·m), PROVISIONAL (orden de magnitud SFPE)
     # Cuellos de botella
     congestion_density: float = 2.0  # p/m², PROVISIONAL (verificar con niveles de servicio)
     congestion_min_duration_s: float = 5.0  # PROVISIONAL
