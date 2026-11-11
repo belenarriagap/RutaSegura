@@ -4,6 +4,32 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Hito 6: entrega (2026-11-10)
+
+#### Agregado
+- **Empaquetado para Windows (RNF05)** con PyInstaller en modo carpeta (`packaging/rutasegura.spec`):
+  - incluye las reglas YAML, los perfiles, las migraciones de Alembic, el ícono y las fuentes de
+    Matplotlib;
+  - la instalación ocupa unos 373 MB y el zip portable unos 176 MB.
+- **`scripts/build_windows.py`:** construye el paquete, ejecuta la **autoprueba del `.exe`**, crea el
+  zip portable y, si Inno Setup 6 está instalado, el instalador.
+- **Instalador de Inno Setup** (`packaging/rutasegura.iss`):
+  - en español, se instala por usuario y sin permisos de administrador;
+  - crea accesos directos en Inicio y, opcionalmente, en el escritorio;
+  - conserva los proyectos al desinstalar.
+- **Flujo de CI «Paquete Windows»** (manual o al publicar una etiqueta `v*`): construye, autoprueba
+  y publica el zip y el instalador como artefactos.
+- **`rutasegura --self-test [--log ARCHIVO]`:** comprueba sin red las reglas, los perfiles, la base
+  de datos con sus migraciones, OpenCV, la simulación y el informe PDF. También se agrega
+  `rutasegura --version`.
+- **Ícono de la aplicación** (señal de salida), generado con `scripts/make_icon.py`.
+- **Manual de usuario** en `docs/manual_usuario.md`, con 10 capturas generadas por
+  `scripts/capture_screenshots.py`.
+
+#### Pendiente
+- **Multipiso (RF12, «Could»):** no se implementó. Es lo primero que se recorta según la
+  especificación y queda para decidir.
+
 ### Hito 5: escenarios y calibración (2026-11-10)
 
 #### Agregado

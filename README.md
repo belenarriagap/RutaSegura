@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 5 (escenarios y calibración) terminado. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 6 (entrega) terminado. Multipiso (RF12) pendiente de decisión. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 
@@ -80,6 +80,7 @@ docs/            CHANGELOG, decisiones (ADR)
 - [docs/rendimiento.md](docs/rendimiento.md): benchmarks del motor y del render.
 - [docs/normas.md](docs/normas.md): reglas normativas, su estado de verificación y cómo corregirlas.
 - [docs/calibracion.md](docs/calibracion.md): escenarios «qué pasa si», comparador y calibración con un simulacro real.
+- [docs/manual_usuario.md](docs/manual_usuario.md): manual de usuario paso a paso.
 - [CLAUDE.md](CLAUDE.md): especificación completa del proyecto.
 
 ## Base de datos
@@ -110,4 +111,19 @@ uv run python scripts/eval_vision.py --dataset planos_etiquetados --overlays con
 
 ```bash
 uv run pytest tests/benchmarks -s
+```
+
+## Empaquetado para Windows
+
+```bash
+uv run python scripts/build_windows.py
+```
+
+Genera `dist/RutaSegura/RutaSegura.exe`, verifica el ejecutable con `--self-test` y crea el zip
+portable. Si Inno Setup 6 está instalado, también crea el instalador.
+
+Para comprobar una instalación:
+
+```bash
+RutaSegura.exe --self-test --log autoprueba.txt
 ```

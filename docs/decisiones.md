@@ -341,3 +341,28 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
   La diferencia real estaba en el flujo (a los 30 s: 50 evacuados frente a 23).
 - **Decisión:** el comparador y el informe muestran también el tiempo para evacuar al 50 % y al
   90 %, calculados con la curva de evacuados.
+
+## ADR-029: PyInstaller en modo carpeta + Inno Setup
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Decisión:**
+  - **Modo carpeta:** PyInstaller en modo carpeta (`--onedir`); no se usa el `.exe` de un solo
+    archivo.
+  - **Instalador:** Inno Setup arma el instalador por usuario.
+  - **Verificación:** cada paquete se comprueba ejecutando el `.exe` con `--self-test`.
+- **Motivo:** un solo archivo descomprime unos 370 MB en cada arranque, lo que lo hace lento y da
+  más falsos positivos de antivirus.
+- **Alternativas:**
+  - zip portable: también se genera;
+  - MSI con WiX: más complejo para el mismo resultado.
+- **Pendiente:** firmar digitalmente el ejecutable. Requiere un certificado; sin él, Windows
+  SmartScreen muestra una advertencia la primera vez.
+
+## ADR-030: autoprueba integrada en el ejecutable
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada
+- **Contexto:** las fallas típicas de un empaquetado son archivos de datos faltantes (YAML,
+  migraciones, fuentes) que solo aparecen en tiempo de ejecución.
+- **Decisión:** `--self-test` recorre el flujo completo en una carpeta temporal, sin tocar los
+  datos del usuario y sin red. El script de construcción y el CI la ejecutan sobre el `.exe`
+  congelado.
