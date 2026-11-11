@@ -1,4 +1,4 @@
-"""Paso 6: ejecutar la simulación en segundo plano y revisar resultados (RF07, RF08)."""
+"""Paso 6: escenarios, simulación en segundo plano y resultados (RF07, RF08, RF10)."""
 
 from __future__ import annotations
 
@@ -10,10 +10,13 @@ import numpy.typing as npt
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSpinBox,
@@ -22,12 +25,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from rutasegura.application.simulation_service import SimulationRun, SimulationService
+from rutasegura.application.errors import UserFacingError
+from rutasegura.application.simulation_service import (
+    BASE_SCENARIO,
+    SimulationRun,
+    SimulationService,
+)
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import Scenario
 from rutasegura.presentation.qt_support import BackgroundJob
+from rutasegura.presentation.scenario_dialogs import ComparisonDialog, ScenarioDialog
 from rutasegura.presentation.simulation_viewer import SimulationViewer, format_time
-from rutasegura.resources.texts import TEXTS, SimulationTexts
+from rutasegura.resources.texts import TEXTS, ScenarioTexts, SimulationTexts
 
 Image = npt.NDArray[np.uint8]
 
@@ -51,16 +60,33 @@ class SimulationPage(QWidget):
         self,
         simulations: SimulationService,
         texts: SimulationTexts = TEXTS.simulation,
+        scenario_texts: ScenarioTexts = TEXTS.scenarios,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._simulations = simulations
         self._texts = texts
+        self._stexts = scenario_texts
         self._project_id: int | None = None
         self._plan = FloorPlan()
-        self._scenario = Scenario("", 0)
+        self._image: Image | None = None
+        self._scenario = Scenario(BASE_SCENARIO, 0)  # escenario base (lo edita el paso 4)
+        self._variants: list[Scenario] = []
+        self._current = BASE_SCENARIO
         self._run: SimulationRun | None = None
         self.job: BackgroundJob | None = None
+
+        st = scenario_texts
+        self.scenario_combo = QComboBox()
+        self.scenario_combo.currentTextChanged.connect(self._on_scenario_selected)
+        self.new_button = QPushButton(st.new)
+        self.new_button.clicked.connect(self.ask_new_variant)
+        self.edit_button = QPushButton(st.edit)
+        self.edit_button.clicked.connect(self.ask_edit_variant)
+        self.delete_button = QPushButton(st.delete)
+        self.delete_button.clicked.connect(self.ask_delete_variant)
+        self.compare_button = QPushButton(st.compare)
+        self.compare_button.clicked.connect(self.open_comparison)
 
         self.seed_spin = QSpinBox()
         self.seed_spin.setRange(0, 2_000_000_000)
@@ -96,6 +122,11 @@ class SimulationPage(QWidget):
         splitter.addWidget(panel)
         splitter.setSizes([800, 340])
 
+        scenario_row = QHBoxLayout()
+        scenario_row.addWidget(QLabel(st.label))
+        scenario_row.addWidget(self.scenario_combo, stretch=1)
+        for button in (self.new_button, self.edit_button, self.delete_button, self.compare_button):
+            scenario_row.addWidget(button)
         row = QHBoxLayout()
         row.addWidget(QLabel(texts.seed))
         row.addWidget(self.seed_spin)
@@ -108,6 +139,7 @@ class SimulationPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(_bold(QLabel(texts.title), 5))
         layout.addWidget(help_label)
+        layout.addLayout(scenario_row)
         layout.addLayout(row)
         layout.addWidget(splitter, stretch=1)
 
@@ -117,19 +149,160 @@ class SimulationPage(QWidget):
         """Corrida mostrada."""
         return self._run
 
+    @property
+    def current_scenario(self) -> Scenario:
+        """Escenario seleccionado (el base o una variante)."""
+        if self._current == BASE_SCENARIO:
+            return self._scenario
+        return next((v for v in self._variants if v.name == self._current), self._scenario)
+
+    @property
+    def scenario_names(self) -> list[str]:
+        """Nombres en el selector."""
+        return [self.scenario_combo.itemText(i) for i in range(self.scenario_combo.count())]
+
     def set_content(
         self, project_id: int, plan: FloorPlan, image: Image | None, scenario: Scenario
     ) -> None:
-        """Plano y escenario a simular."""
+        """Plano, escenario base (en memoria) y variantes guardadas."""
+        if self._project_id != project_id:
+            self._current = BASE_SCENARIO
         self._project_id = project_id
         self._plan = plan
+        self._image = image
         self._scenario = scenario
-        self.seed_spin.blockSignals(True)
-        self.seed_spin.setValue(scenario.seed)
-        self.seed_spin.blockSignals(False)
         self.viewer.set_plan(plan, image)
-        if self._run is not None:
-            self._show_run(self._run)
+        self._reload_variants()
+
+    def _reload_variants(self) -> None:
+        if self._project_id is None:
+            return
+        self._variants = self._simulations.list_scenarios(self._project_id)[1:]
+        names = [BASE_SCENARIO, *(v.name for v in self._variants)]
+        if self._current not in names:
+            self._current = BASE_SCENARIO
+        self.scenario_combo.blockSignals(True)
+        self.scenario_combo.clear()
+        self.scenario_combo.addItems(names)
+        self.scenario_combo.setCurrentText(self._current)
+        self.scenario_combo.blockSignals(False)
+        self._select(self._current)
+
+    def _on_scenario_selected(self, name: str) -> None:
+        if name and name != self._current:
+            self._select(name)
+
+    def _select(self, name: str) -> None:
+        self._current = name
+        is_base = name == BASE_SCENARIO
+        self.edit_button.setEnabled(not is_base)
+        self.delete_button.setEnabled(not is_base)
+        self.seed_spin.blockSignals(True)
+        self.seed_spin.setValue(self.current_scenario.seed)
+        self.seed_spin.blockSignals(False)
+        if self._project_id is not None:
+            self.set_run(self._simulations.last_run(self._project_id, name))
+
+    def select_scenario(self, name: str) -> None:
+        """Selecciona un escenario por nombre."""
+        self.scenario_combo.setCurrentText(name)
+
+    # ------------------------------------------------------------------ variantes
+    def _exit_names(self) -> list[str]:
+        return [e.name for e in self._plan.exits if e.confirmed]
+
+    def create_variant(self, name: str, percent: int, blocked: frozenset[str]) -> bool:
+        """Crea un escenario «qué pasa si» y lo selecciona."""
+        return self._save_variant(name, percent, blocked, previous=None)
+
+    def update_current_variant(self, name: str, percent: int, blocked: frozenset[str]) -> bool:
+        """Actualiza el escenario seleccionado (no el base)."""
+        if self._current == BASE_SCENARIO:
+            return False
+        return self._save_variant(name, percent, blocked, previous=self._current)
+
+    def _save_variant(
+        self, name: str, percent: int, blocked: frozenset[str], previous: str | None
+    ) -> bool:
+        if self._project_id is None:
+            return False
+        try:
+            variant = self._simulations.save_variant(
+                self._project_id, name, self._scenario, percent, blocked, previous_name=previous
+            )
+        except UserFacingError as exc:
+            self.error.emit(exc.message)
+            return False
+        self._current = variant.name
+        self._reload_variants()
+        return True
+
+    def delete_current_variant(self) -> None:
+        """Elimina el escenario seleccionado (no el base)."""
+        if self._project_id is None or self._current == BASE_SCENARIO:
+            return
+        self._simulations.delete_scenario(self._project_id, self._current)
+        self._current = BASE_SCENARIO
+        self._reload_variants()
+
+    def ask_new_variant(self) -> None:
+        """Diálogo de escenario nuevo."""
+        dialog = ScenarioDialog(
+            self._exit_names(), self._scenario.total_occupants, texts=self._stexts, parent=self
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.create_variant(*dialog.values())
+
+    def ask_edit_variant(self) -> None:
+        """Diálogo para editar el escenario seleccionado."""
+        variant = self.current_scenario
+        if variant.name == BASE_SCENARIO:
+            return
+        base_total = self._scenario.total_occupants
+        percent = round(100 * variant.total_occupants / base_total) if base_total else 100
+        dialog = ScenarioDialog(
+            self._exit_names(),
+            base_total,
+            name=variant.name,
+            percent=max(10, percent),
+            blocked=variant.blocked_exits,
+            editing=True,
+            texts=self._stexts,
+            parent=self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.update_current_variant(*dialog.values())
+
+    def ask_delete_variant(self) -> None:
+        """Pide confirmación y elimina el escenario seleccionado."""
+        if self._current == BASE_SCENARIO:
+            return
+        answer = QMessageBox.question(
+            self, self._stexts.delete, self._stexts.confirm_delete.format(name=self._current)
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.delete_current_variant()
+
+    def comparison_dialog(self) -> ComparisonDialog | None:
+        """Crea el comparador (o ``None`` sin proyecto)."""
+        if self._project_id is None:
+            return None
+        project_id = self._project_id
+        return ComparisonDialog(
+            [self._scenario, *self._variants],
+            lambda name: self._simulations.last_run(project_id, name),
+            self._plan,
+            self._image,
+            texts=self._stexts,
+            sim_texts=self._texts,
+            parent=self,
+        )
+
+    def open_comparison(self) -> None:
+        """Abre el comparador lado a lado."""
+        dialog = self.comparison_dialog()
+        if dialog is not None:
+            dialog.exec()
 
     def set_run(self, run: SimulationRun | None) -> None:
         """Muestra una corrida (o ninguna)."""
@@ -141,7 +314,7 @@ class SimulationPage(QWidget):
         """Lanza la simulación en otro hilo."""
         if self._project_id is None or (self.job is not None and self.job.running):
             return
-        project_id, plan, scenario = self._project_id, self._plan, self._scenario
+        project_id, plan, scenario = self._project_id, self._plan, self.current_scenario
         simulations = self._simulations
 
         def work(report: Callable[[float], None], should_cancel: Callable[[], bool]) -> object:
@@ -187,13 +360,28 @@ class SimulationPage(QWidget):
     def _set_running(self, running: bool) -> None:
         self.run_button.setEnabled(not running)
         self.seed_spin.setEnabled(not running)
+        self.scenario_combo.setEnabled(not running)
+        for button in (self.new_button, self.compare_button):
+            button.setEnabled(not running)
+        is_base = self._current == BASE_SCENARIO
+        self.edit_button.setEnabled(not running and not is_base)
+        self.delete_button.setEnabled(not running and not is_base)
         self.cancel_button.setEnabled(running)
         self.progress.setVisible(running)
         self.progress.setValue(0)
 
     def _on_seed(self, value: int) -> None:
-        self._scenario = dataclasses.replace(self._scenario, seed=value)
-        self.scenario_changed.emit(self._scenario)
+        if self._current == BASE_SCENARIO:
+            self._scenario = dataclasses.replace(self._scenario, seed=value)
+            self.scenario_changed.emit(self._scenario)
+            return
+        variant = dataclasses.replace(self.current_scenario, seed=value)
+        self._variants = [variant if v.name == variant.name else v for v in self._variants]
+        if self._project_id is not None:
+            try:
+                self._simulations.save_scenario(self._project_id, variant)
+            except UserFacingError as exc:
+                self.error.emit(exc.message)
 
     # ------------------------------------------------------------------ resultados
     def _show_run(self, run: SimulationRun | None) -> None:

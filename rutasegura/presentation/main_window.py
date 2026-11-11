@@ -28,6 +28,7 @@ from rutasegura.application.services import AppServices
 from rutasegura.domain.enums import UseType
 from rutasegura.domain.plan import FloorPlan
 from rutasegura.domain.scenario import Scenario
+from rutasegura.presentation.calibration_dialog import CalibrationDialog
 from rutasegura.presentation.norms_page import NormsPage
 from rutasegura.presentation.project_dialogs import NewProjectDialog, OpenProjectDialog
 from rutasegura.presentation.report_page import ReportPage
@@ -102,6 +103,11 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.editor_page.editor.undo_action)
         edit_menu.addAction(self.editor_page.editor.redo_action)
 
+        tools_menu = self.menuBar().addMenu(t.calibration.menu_tools)
+        self.calibrate_action = QAction(t.calibration.menu_calibrate, self)
+        self.calibrate_action.triggered.connect(self.open_calibration)
+        tools_menu.addAction(self.calibrate_action)
+
         help_menu = self.menuBar().addMenu(t.menu_help)
         about_action = QAction(t.action_about, self)
         about_action.triggered.connect(self._show_about)
@@ -120,7 +126,9 @@ class MainWindow(QMainWindow):
         self.rooms_page = RoomsPage(plans, self._texts.rooms, self._texts.project)
         self.rooms_page.plan_changed.connect(self._on_plan_edited)
         self.rooms_page.scenario_changed.connect(self._on_scenario_changed)
-        self.simulation_page = SimulationPage(self._services.simulations, self._texts.simulation)
+        self.simulation_page = SimulationPage(
+            self._services.simulations, self._texts.simulation, self._texts.scenarios
+        )
         self.simulation_page.scenario_changed.connect(self._on_scenario_changed)
         self.norms_page = NormsPage(self._services.norms, self._texts.norms)
         self.norms_page.plan_changed.connect(self._on_plan_edited)
@@ -355,6 +363,7 @@ class MainWindow(QMainWindow):
             if row not in ACTIVE_STEPS:
                 item.setToolTip(self._texts.wizard.step_not_ready)
         self.save_action.setEnabled(self.project_id is not None)
+        self.calibrate_action.setEnabled(self.project_id is not None)
         if self.project_id is None:
             self.stack.setCurrentWidget(self.welcome_page)
 
@@ -384,6 +393,31 @@ class MainWindow(QMainWindow):
         if scenario != self._scenario:
             self._scenario = scenario
             self._scenario_dirty = True
+
+    # ----------------------------------------------------------------- calibración
+    def calibration_dialog(self) -> CalibrationDialog | None:
+        """Diálogo de calibración con el plano y el escenario base actuales (guarda antes)."""
+        if self.project_id is None or self._scenario is None or not self.save():
+            self.show_error(self._texts.calibration.no_project)
+            return None
+        dialog = CalibrationDialog(
+            self._services.calibration,
+            self.project_id,
+            self._plan,
+            self._scenario,
+            texts=self._texts.calibration,
+            parent=self,
+        )
+        dialog.applied.connect(
+            lambda: self.statusBar().showMessage(self._texts.calibration.applied, 6000)
+        )
+        return dialog
+
+    def open_calibration(self) -> None:
+        """Abre el diálogo de calibración."""
+        dialog = self.calibration_dialog()
+        if dialog is not None:
+            dialog.exec()
 
     # ----------------------------------------------------------------- varios
     def show_error(self, message: str) -> None:

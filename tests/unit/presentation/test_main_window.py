@@ -34,7 +34,12 @@ def test_main_window_opens(qtbot: QtBot, services: AppServices) -> None:
 def test_menus_are_in_spanish(qtbot: QtBot, services: AppServices) -> None:
     window = _window(qtbot, services)
     titles = [action.text() for action in window.menuBar().actions()]
-    assert titles == [TEXTS.menu_file, TEXTS.menu_edit, TEXTS.menu_help]
+    assert titles == [
+        TEXTS.menu_file,
+        TEXTS.menu_edit,
+        TEXTS.calibration.menu_tools,
+        TEXTS.menu_help,
+    ]
 
 
 def test_steps_enable_after_creating_project(qtbot: QtBot, services: AppServices) -> None:

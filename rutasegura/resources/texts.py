@@ -179,6 +179,83 @@ class SimulationTexts:
 
 
 @dataclass(frozen=True, slots=True)
+class ScenarioTexts:
+    """Escenarios «qué pasa si» y comparador (RF10)."""
+
+    label: str = "Escenario:"
+    new: str = "Nuevo escenario…"
+    edit: str = "Editar…"
+    delete: str = "Eliminar"
+    compare: str = "Comparar escenarios…"
+    dialog_new_title: str = "Nuevo escenario «qué pasa si»"
+    dialog_edit_title: str = "Editar escenario"
+    name: str = "Nombre:"
+    occupancy: str = "Ocupación respecto del escenario base:"
+    occupancy_result: str = "= {count} personas (el escenario base tiene {base})."
+    blocked: str = "Salidas bloqueadas en este escenario:"
+    no_exits: str = "El plano no tiene salidas confirmadas."
+    base_hint: str = (
+        "Las personas del escenario base se indican en el paso 4. Los demás escenarios copian "
+        "esa ocupación con el porcentaje elegido."
+    )
+    confirm_delete: str = "¿Eliminar el escenario «{name}» y sus simulaciones?"
+    compare_title: str = "Comparar escenarios"
+    compare_need_two: str = "Simule al menos dos escenarios para poder compararlos."
+    play_both: str = "▶ Reproducir ambos"
+    metric: str = "Indicador"
+    difference: str = "Diferencia (B − A)"
+    row_people: str = "Personas"
+    row_blocked: str = "Salidas bloqueadas"
+    row_total: str = "Tiempo total de evacuación"
+    row_half: str = "Tiempo para evacuar al 50 %"
+    row_ninety: str = "Tiempo para evacuar al 90 %"
+    row_evacuated: str = "Evacuados"
+    row_bottlenecks: str = "Cuellos de botella"
+    row_exit: str = "Tiempo por «{name}»"
+    none: str = "Ninguna"
+    not_used: str = "sin uso"
+
+
+@dataclass(frozen=True, slots=True)
+class CalibrationTexts:
+    """Registro de simulacro real y calibración (RF11)."""
+
+    menu_tools: str = "&Herramientas"
+    menu_calibrate: str = "&Calibrar con un simulacro real…"
+    title: str = "Calibrar con un simulacro real"
+    help: str = (
+        "Registre los datos de un simulacro de su local. El sistema prueba distintos tiempos de "
+        "reacción y velocidades hasta que la simulación se parezca a lo que ocurrió."
+    )
+    date: str = "Fecha del simulacro:"
+    participants: str = "Personas que participaron:"
+    total_time: str = "Tiempo total (hasta que salió la última persona):"
+    per_exit: str = "Tiempo de la última persona por cada salida (opcional, 0 = no medido):"
+    minutes: str = " min"
+    seconds: str = " s"
+    run: str = "Calibrar"
+    missing_time: str = "Indique el tiempo total que duró el simulacro."
+    cancel: str = "Cancelar"
+    running: str = "Probando combinaciones… {percent:.0f} %"
+    cancelled: str = "Calibración cancelada."
+    result: str = (
+        "Error en el tiempo total: antes {before:.0%}, después {after:.0%} (meta: menos de 20 %).\n"
+        "Tiempos de reacción × {reaction:g} · Velocidades × {speed:g}\n"
+        "Tiempo simulado: {simulated} · Tiempo real: {observed}"
+    )
+    target_met: str = "Se cumple la meta de validación."
+    target_missed: str = (
+        "No se alcanzó la meta: revise los datos del simulacro, la ocupación del paso 4 o el plano."
+    )
+    apply: str = "Aplicar a los perfiles"
+    applied: str = (
+        "Listo: los perfiles se ajustaron. Vuelva a simular para ver los tiempos calibrados."
+    )
+    close: str = "Cerrar"
+    no_project: str = "Primero abra un proyecto con plano, escala y ocupantes."
+
+
+@dataclass(frozen=True, slots=True)
 class NormsTexts:
     """Paso 5: revisar norma."""
 
@@ -257,6 +334,8 @@ class UiTexts:
     rooms: RoomsTexts = field(default_factory=RoomsTexts)
     simulation: SimulationTexts = field(default_factory=SimulationTexts)
     norms: NormsTexts = field(default_factory=NormsTexts)
+    scenarios: ScenarioTexts = field(default_factory=ScenarioTexts)
+    calibration: CalibrationTexts = field(default_factory=CalibrationTexts)
     report: ReportTexts = field(default_factory=ReportTexts)
 
 
