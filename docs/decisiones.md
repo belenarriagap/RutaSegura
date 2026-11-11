@@ -366,3 +366,37 @@ Formato corto: contexto, decisión, alternativas, consecuencias.
 - **Decisión:** `--self-test` recorre el flujo completo en una carpeta temporal, sin tocar los
   datos del usuario y sin red. El script de construcción y el CI la ejecutan sobre el `.exe`
   congelado.
+
+## ADR-031: varios pisos con un simulador por piso y escaleras como cola
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (parámetros de escalera provisionales)
+- **Decisión:**
+  - Un `Simulation` y un campo de distancia por piso (CLAUDE.md §5.2). Todos comparten los índices
+    de agente: en cada piso, quien no está en él figura como inactivo. El motor de un piso no cambia
+    y sigue dando resultados idénticos a los de antes.
+  - En los pisos altos, las escaleras son objetivos.
+  - Quien llega a una escalera entra a una cola con capacidad `flujo específico × ancho`, baja
+    durante `recorrido / (velocidad · factor)` y aparece en la escalera emparejada del piso de
+    abajo. Si esa escalera también baja, sigue bajando.
+  - Las escaleras se emparejan por nombre, o con la única escalera del piso de abajo. El editor las
+    nombra solas («Escalera A», «B»…).
+- **Alternativas:**
+  - Grilla 3D con celdas de escalera inclinadas: modela mejor el tramo, pero es mucho más compleja.
+  - Escalera sin capacidad: subestima los tiempos en edificios llenos.
+- **Limitaciones:**
+  - No se modelan los conflictos entre quienes bajan y quienes entran a la escalera desde un piso
+    intermedio. La cola es una por escalera y por piso.
+  - No hay evacuación hacia arriba (azoteas).
+  - Las imágenes de cada piso no necesitan estar alineadas, porque las coordenadas son propias de
+    cada piso.
+
+## ADR-032: normas en edificios de varios pisos
+
+- **Fecha:** 2026-11-10 · **Estado:** aceptada (pendiente de verificación normativa)
+- **Decisión:**
+  - El ancho total de las salidas del piso más bajo se compara con los ocupantes de **todo el
+    edificio**.
+  - Los pisos altos no se evalúan por salidas, porque se evacúan por escaleras.
+  - Las observaciones llevan el prefijo «Piso N:».
+- **Pendiente:** agregar a `medios_evacuacion.yaml` el ancho mínimo y por persona de las
+  escaleras, con el texto oficial del RNE A.130 (`verificado: false` hasta confirmarlo).

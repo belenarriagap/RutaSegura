@@ -26,9 +26,27 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - **Manual de usuario** en `docs/manual_usuario.md`, con 10 capturas generadas por
   `scripts/capture_screenshots.py`.
 
-#### Pendiente
-- **Multipiso (RF12, «Could»):** no se implementó. Es lo primero que se recorta según la
-  especificación y queda para decidir.
+- **Varios pisos (RF12),** hasta 4:
+  - **Motor** `engines/simulation/multifloor.py`:
+    - un campo de distancia y un `Simulation` por piso, con índices de agente compartidos;
+    - en los pisos altos, las escaleras son objetivos;
+    - al bajar hay una cola con capacidad (flujo específico × ancho) y un tiempo de bajada con
+      velocidad reducida;
+    - la persona aparece en la escalera emparejada del piso de abajo.
+  - **Escaleras:** se emparejan por nombre (o con la única escalera del piso de abajo) y se nombran
+    solas («Escalera A», «Escalera B»…).
+  - **Interfaz:**
+    - barra «Piso» para cambiar, agregar y eliminar pisos;
+    - los pasos 1 a 5 trabajan sobre el piso elegido;
+    - la simulación, el comparador y el visor muestran el edificio completo, con un selector de
+      piso.
+  - **Normas del edificio:** las salidas del piso 1 deben dar paso a todas las personas del
+    edificio, y las observaciones indican el piso.
+  - **Informe:** un mapa de calor por piso, y los cuellos de botella indican su piso.
+  - **Archivo de corrida:** el `.npz` pasa a la versión 2, con el piso de cada persona y un mapa
+    por piso. Los archivos de la versión 1 se siguen leyendo.
+- **Parámetros provisionales nuevos:** recorrido de escalera por piso, factor de velocidad al
+  bajar y flujo específico de la escalera.
 
 ### Hito 5: escenarios y calibración (2026-11-10)
 

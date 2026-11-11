@@ -7,7 +7,7 @@ oficina, tienda) en un modelo del edificio, verifica aforo y anchos mínimos seg
 > Este informe es de apoyo y no reemplaza la Inspección Técnica de Seguridad en Edificaciones
 > (ITSE) ni el estudio de un profesional colegiado.
 
-**Estado:** Hito 6 (entrega) terminado. Multipiso (RF12) pendiente de decisión. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
+**Estado:** Hito 6 (entrega y varios pisos) terminado: todos los hitos completos. Ver [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Requisitos
 

@@ -34,6 +34,18 @@ Los valores están definidos en `rutasegura/engines/simulation/params.py` (`Simu
 - La densidad ρ se calcula con **todas las personas presentes** (también las que esperan), contando
   las personas en una ventana de 3 × 3 celdas (1.44 m²).
 
+## Escaleras (varios pisos)
+
+| Parámetro | Valor | Estado | Comentario |
+|---|---|---|---|
+| Recorrido por piso | 8 m | PROVISIONAL | Dos tramos y un descanso. Depende del edificio; medir si es posible. |
+| Factor de velocidad al bajar | 0.5 | PROVISIONAL | Respecto de la velocidad horizontal de cada perfil. Contrastar con la literatura de evacuación en escaleras. |
+| Flujo específico | 1.1 personas/(s·m) | PROVISIONAL | Orden de magnitud del SFPE Handbook para escaleras. Verificar. |
+
+- **Cola de entrada:** se pasa una persona cada 1 / (flujo × ancho) segundos. El ancho es el lado
+  corto del rectángulo que contiene a la escalera dibujada.
+- **Tiempo de bajada:** recorrido / (velocidad máxima × factor).
+
 ## Cuellos de botella y mapa de calor
 
 | Parámetro | Valor | Estado | Comentario |

@@ -193,6 +193,30 @@ incluye:
 
 ---
 
+## Edificios de varios pisos
+
+![Varios pisos](img/10_varios_pisos.png)
+
+RutaSegura simula edificios de hasta 4 pisos.
+
+1. Con el proyecto abierto, use la barra **Piso** (arriba) y pulse **+ Agregar piso**.
+2. Para cada piso, haga los pasos 1 a 4: cargue su plano, defina su escala, corrija el plano y
+   marque ambientes y ocupantes. El selector **Piso** indica en qué piso está trabajando.
+3. **Escaleras.** Dibújelas en el paso 3, en **todos los pisos que unen**, en el mismo lugar del
+   edificio. Se nombran solas («Escalera A», «Escalera B»…):
+   - si las dibuja en el mismo orden en cada piso, quedan emparejadas;
+   - si un piso tiene una sola escalera, se empareja con ella automáticamente.
+4. En el paso 6 se simula **todo el edificio a la vez**.
+   - Las personas de los pisos altos caminan hasta la escalera, bajan y salen por las salidas del
+     piso 1.
+   - Las escaleras tienen una capacidad: si llega mucha gente, se forma fila.
+   - En el visor, el selector **Piso** muestra cada piso con su mapa de calor.
+
+**Eliminar un piso:** solo se puede eliminar el piso más alto, nunca el piso 1. Si no lo tiene
+abierto, cámbielo primero en el selector **Piso**.
+
+---
+
 ## Calibrar con un simulacro real
 
 ![Calibrar](img/08_calibrar.png)
@@ -219,6 +243,11 @@ enfocados. Si la foto está torcida, enderécela en el paso 1.
 **Dice que las personas de un ambiente «no tienen una salida alcanzable».**
 Revise que ese ambiente tenga una puerta, que no haya un muro cerrando el paso y que el local
 tenga al menos una salida confirmada.
+
+**Dice que una escalera «no tiene una escalera correspondiente» en otro piso.**
+Dibuje la escalera también en el piso de abajo, en el mismo lugar. Si ese piso tiene varias
+escaleras, dibújelas en el mismo orden que en el piso de arriba para que tengan los mismos
+nombres.
 
 **Dice que hay salidas propuestas sin confirmar.**
 Vuelva al paso 3, seleccione las salidas con «?» y pulse **Confirmar salida**, o bórrelas.
