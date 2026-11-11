@@ -35,6 +35,7 @@ from rutasegura.engines.simulation.engine import (
     SimulationCancelled,
     SimulationOutput,
 )
+from rutasegura.engines.simulation.multifloor import MultiFloorError, MultiFloorSimulation
 from rutasegura.engines.simulation.params import SimulationParams
 from rutasegura.engines.simulation.population import PopulationError, RoomArea, spawn_agents
 
@@ -59,6 +60,11 @@ class SimulationRun:
     trajectories: Trajectories
     observations: tuple[Observation, ...]
     scale_m_per_px: float
+    floor_scales: tuple[tuple[int, float], ...] = ()  # (nivel, escala) de cada piso
+
+    def scale_of(self, level: int) -> float:
+        """Escala (m/px) del piso indicado."""
+        return dict(self.floor_scales).get(level, self.scale_m_per_px)
 
 
 class SimulationService:
@@ -164,20 +170,20 @@ class SimulationService:
     def run(
         self,
         project_id: int,
-        plan: FloorPlan,
+        plan: FloorPlan | Sequence[FloorPlan],
         scenario: Scenario,
         *,
         progress: Callable[[float], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> SimulationRun:
-        """Simula el escenario sobre el plano, guarda el resultado y lo devuelve."""
-        scale = self._validate(plan, scenario)
-        output = self.simulate(plan, scenario, progress=progress, should_cancel=should_cancel)
-        return self._store(project_id, plan, scenario, output, scale)
+        """Simula el escenario (uno o varios pisos), guarda el resultado y lo devuelve."""
+        floors = _as_floors(plan)
+        output = self.simulate(floors, scenario, progress=progress, should_cancel=should_cancel)
+        return self._store(project_id, floors, scenario, output)
 
     def simulate(
         self,
-        plan: FloorPlan,
+        plan: FloorPlan | Sequence[FloorPlan],
         scenario: Scenario,
         profiles: Sequence[PersonProfile] | None = None,
         *,
@@ -185,6 +191,12 @@ class SimulationService:
         should_cancel: Callable[[], bool] | None = None,
     ) -> SimulationOutput:
         """Simula sin guardar nada (lo usa también la calibración con perfiles modificados)."""
+        floors = _as_floors(plan)
+        if len(floors) > 1:
+            return self._simulate_building(
+                floors, scenario, profiles, progress=progress, should_cancel=should_cancel
+            )
+        plan = floors[0]
         scale = self._validate(plan, scenario)
         grid = build_grid(plan, blocked_exits=scenario.blocked_exits)
         distance = distance_field(grid.walkable, grid.targets, grid.cell_size)
@@ -210,22 +222,53 @@ class SimulationService:
         except SimulationCancelled as exc:
             raise OperationCancelled from exc
 
+    def _simulate_building(
+        self,
+        floors: Sequence[FloorPlan],
+        scenario: Scenario,
+        profiles: Sequence[PersonProfile] | None,
+        *,
+        progress: Callable[[float], None] | None,
+        should_cancel: Callable[[], bool] | None,
+    ) -> SimulationOutput:
+        self._validate_building(floors, scenario)
+        try:
+            simulation = MultiFloorSimulation(
+                floors,
+                scenario.occupancies,
+                list(profiles) if profiles is not None else self.profiles(),
+                self.params,
+                seed=scenario.seed,
+                blocked_exits=scenario.blocked_exits,
+            )
+            return simulation.run(progress=progress, should_cancel=should_cancel)
+        except MultiFloorError as exc:
+            raise UserFacingError(str(exc)) from exc
+        except SimulationCancelled as exc:
+            raise OperationCancelled from exc
+
     def _store(
         self,
         project_id: int,
-        plan: FloorPlan,
+        floors: Sequence[FloorPlan],
         scenario: Scenario,
         output: SimulationOutput,
-        scale: float,
     ) -> SimulationRun:
+        by_level = {f.level: f for f in floors}
+        multi = len(floors) > 1
         observations = tuple(
-            self._congestion(b, plan, scale) for b in output.result.bottlenecks[:5]
+            self._congestion(b, by_level.get(b.level, floors[0]), multi)
+            for b in output.result.bottlenecks[:5]
         )
         # Las observaciones normativas del plano se guardan junto con la corrida (tabla
         # «observacion», CLAUDE.md §6); la corrida muestra solo las de congestión.
         norm_observations = (
-            self._norms.evaluate(plan, scenario).observations if self._norms is not None else ()
+            self._norms.evaluate_building(floors, scenario).observations
+            if self._norms is not None
+            else ()
         )
+        scales = tuple((f.level, f.scale_m_per_px or 1.0) for f in floors)
+        scale = floors[0].scale_m_per_px or 1.0
         scenario_id = self.save_scenario(project_id, scenario)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         path = self._runs_dir / f"proyecto_{project_id}" / f"escenario_{scenario_id}_{stamp}.npz"
@@ -235,7 +278,9 @@ class SimulationService:
             simulation_id = uow.simulations.add(
                 scenario_id, result, observations + norm_observations
             )
-        return SimulationRun(simulation_id, result, output.trajectories, observations, scale)
+        return SimulationRun(
+            simulation_id, result, output.trajectories, observations, scale, scales
+        )
 
     def last_run(self, project_id: int, name: str = BASE_SCENARIO) -> SimulationRun | None:
         """Última corrida de un escenario, si existe y su archivo sigue disponible."""
@@ -254,10 +299,13 @@ class SimulationService:
                 for o in uow.simulations.observations(simulation_id)
                 if o.kind is ObservationType.CONGESTION
             )
-            try:
-                plan_scale = uow.floors.get(project_id, 0).scale_m_per_px
-            except NotFoundError:
+            levels = uow.floors.levels(project_id)
+            if not levels:
                 return None
+            scales = tuple(
+                (level, uow.floors.get(project_id, level).scale_m_per_px or 1.0) for level in levels
+            )
+            plan_scale = scales[0][1]
         if summary.trajectories_path is None or plan_scale is None:
             return None
         try:
@@ -278,8 +326,11 @@ class SimulationService:
             completed=stored.completed,
             grid_origin_m=stored.grid_origin_m,
             cell_size_m=stored.cell_size_m,
+            floor_maps=stored.floor_maps,
         )
-        return SimulationRun(simulation_id, result, stored.trajectories, observations, plan_scale)
+        return SimulationRun(
+            simulation_id, result, stored.trajectories, observations, plan_scale, scales
+        )
 
     # ------------------------------------------------------------------ auxiliares
     @staticmethod
@@ -299,18 +350,53 @@ class SimulationService:
             raise UserFacingError("Indique cuántas personas hay en cada ambiente (paso 4).")
         return plan.scale_m_per_px
 
+    def _validate_building(self, floors: Sequence[FloorPlan], scenario: Scenario) -> None:
+        for plan in floors:
+            if plan.scale_m_per_px is None:
+                raise UserFacingError(
+                    f"El piso {plan.level + 1} no tiene escala; defínala en el paso 2."
+                )
+            if any(not e.confirmed for e in plan.exits):
+                raise UserFacingError(
+                    f"El piso {plan.level + 1} tiene salidas propuestas sin confirmar. "
+                    "Confírmelas o bórrelas en el paso 3."
+                )
+        if not any(plan.rooms for plan in floors):
+            raise UserFacingError("Primero marque los ambientes del local (paso 4).")
+        if scenario.total_occupants == 0:
+            raise UserFacingError("Indique cuántas personas hay en cada ambiente (paso 4).")
+        lowest = min(floors, key=lambda f: f.level)
+        usable = [e for e in lowest.exits if e.name not in scenario.blocked_exits]
+        if not usable and not lowest.safe_zones:
+            raise UserFacingError(
+                f"El piso {lowest.level + 1} no tiene ninguna salida ni zona segura disponible."
+            )
+
     @staticmethod
-    def _congestion(bottleneck: Bottleneck, plan: FloorPlan, scale: float) -> Observation:
+    def _congestion(bottleneck: Bottleneck, plan: FloorPlan, multi: bool = False) -> Observation:
+        scale = plan.scale_m_per_px or 1.0
+        place = describe_place(plan, scale, bottleneck.location)
+        if multi:
+            place = f"en el piso {bottleneck.level + 1}, {place}"
         return Observation(
             kind=ObservationType.CONGESTION,
             description=CONGESTION_TEXT.format(
-                place=describe_place(plan, scale, bottleneck.location),
+                place=place,
                 density=bottleneck.mean_density,
                 duration=bottleneck.duration_s,
             ),
             recommendation=CONGESTION_ADVICE,
             location=bottleneck.location,
         )
+
+
+def _as_floors(plan: FloorPlan | Sequence[FloorPlan]) -> list[FloorPlan]:
+    if isinstance(plan, FloorPlan):
+        return [plan]
+    floors = sorted(plan, key=lambda f: f.level)
+    if not floors:
+        raise UserFacingError("No hay pisos para simular.")
+    return floors
 
 
 def scale_occupancies(occupancies: Sequence[Occupancy], target_total: int) -> tuple[Occupancy, ...]:

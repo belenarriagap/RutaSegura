@@ -82,6 +82,8 @@ class ReportContent:
     legal_disclaimer: str
     app_version: str
     comparison: tuple[ScenarioRow, ...] = ()
+    # Varios pisos: (plano, imagen) de cada piso, del más bajo al más alto.
+    floors: tuple[tuple[FloorPlan, npt.NDArray[np.uint8] | None], ...] = ()
     generated_at: datetime = field(default_factory=datetime.now)
 
 
@@ -176,24 +178,35 @@ def _figure_image(fig: Figure, width_cm: float) -> Image:
 # ---------------------------------------------------------------------------- gráficos
 
 
-def heatmap_figure(content: ReportContent) -> Figure | None:
-    """Plano en gris + mapa de calor de densidad + numeración de cuellos de botella."""
+def heatmap_figure(content: ReportContent, level: int | None = None) -> Figure | None:
+    """Plano en gris + mapa de calor de densidad + numeración de cuellos de botella.
+
+    ``level`` elige el piso (por defecto, el más bajo).
+    """
     result = content.result
-    scale = content.plan.scale_m_per_px
-    if result is None or scale is None:
+    if result is None:
+        return None
+    floors = dict((p.level, (p, img)) for p, img in content.floors) or {
+        content.plan.level: (content.plan, content.plan_image)
+    }
+    maps = {m.level: m for m in result.maps()}
+    if level is None:
+        level = min(floors)
+    plan, plan_image = floors.get(level, (content.plan, content.plan_image))
+    floor_map = maps.get(level) if result.floor_maps else result.maps()[0]
+    scale = plan.scale_m_per_px
+    if scale is None or floor_map is None:
         return None
     fig = Figure(figsize=(7.5, 5.2), dpi=150)
     ax = fig.add_subplot()
-    if content.plan_image is not None:
-        h, w = content.plan_image.shape[:2]
-        gray = (
-            content.plan_image.mean(axis=2) if content.plan_image.ndim == 3 else content.plan_image
-        )
+    if plan_image is not None:
+        h, w = plan_image.shape[:2]
+        gray = plan_image.mean(axis=2) if plan_image.ndim == 3 else plan_image
         ax.imshow(gray, cmap="gray", extent=(0, w * scale, h * scale, 0), alpha=0.55)
-    density = np.ma.masked_less_equal(result.density_map, 0.0)
-    rows, cols = result.density_map.shape
-    x0, y0 = result.grid_origin_m
-    size = result.cell_size_m
+    density = np.ma.masked_less_equal(floor_map.density_map, 0.0)
+    rows, cols = floor_map.density_map.shape
+    x0, y0 = floor_map.grid_origin_m
+    size = floor_map.cell_size_m
     image = ax.imshow(
         density,
         cmap="YlOrRd",
@@ -202,6 +215,8 @@ def heatmap_figure(content: ReportContent) -> Figure | None:
         interpolation="nearest",
     )
     for rank, bottleneck in enumerate(result.bottlenecks[:5], start=1):
+        if result.floor_maps and bottleneck.level != level:
+            continue
         ax.annotate(
             str(rank),
             (bottleneck.location.x, bottleneck.location.y),
@@ -345,12 +360,18 @@ def write_report(path: Path, content: ReportContent) -> None:
             Paragraph("Simule la evacuación (paso 6) para completar esta sección.", s["body"])
         )
     else:
-        heat = heatmap_figure(content)
-        if heat is not None:
+        levels = [p.level for p, _ in content.floors] or [content.plan.level]
+        for level in levels:
+            heat = heatmap_figure(content, level)
+            if heat is None:
+                continue
+            title = "Mapa de calor de congestión"
+            if len(levels) > 1:
+                title += f" — Piso {level + 1}"
             story.append(
                 KeepTogether(
                     [
-                        Paragraph("Mapa de calor de congestión", s["h2"]),
+                        Paragraph(title, s["h2"]),
                         _figure_image(heat, 16),
                         Paragraph(
                             "Las zonas rojas concentraron más personas en movimiento durante más "

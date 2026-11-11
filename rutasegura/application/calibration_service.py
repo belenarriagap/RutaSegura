@@ -36,7 +36,7 @@ class CalibrationService:
     def calibrate(
         self,
         project_id: int,
-        plan: FloorPlan,
+        plan: FloorPlan | Sequence[FloorPlan],
         scenario: Scenario,
         drill: RealDrill,
         *,

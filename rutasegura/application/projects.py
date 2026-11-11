@@ -79,6 +79,19 @@ class ProjectService:
             except NotFoundError:
                 return None
 
+    def load_floors(self, project_id: int) -> list[FloorPlan]:
+        """Todos los pisos guardados, del más bajo al más alto."""
+        with self._db.unit_of_work() as uow:
+            return [uow.floors.get(project_id, level) for level in uow.floors.levels(project_id)]
+
+    def delete_floor(self, project_id: int, level: int) -> None:
+        """Elimina un piso (y sus ambientes)."""
+        with self._db.unit_of_work() as uow:
+            try:
+                uow.floors.delete(project_id, level)
+            except NotFoundError:
+                return
+
     @staticmethod
     def load_floor_image(plan: FloorPlan) -> Image | None:
         """Imagen de fondo del plano, o ``None`` si falta el archivo."""

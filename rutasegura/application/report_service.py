@@ -43,9 +43,10 @@ class ReportService:
     def build_content(self, project_id: int) -> ReportContent:
         """Reúne el contenido del informe (plano y escenario guardados, última corrida)."""
         project = self._projects.get_project(project_id)
-        plan = self._projects.load_floor(project_id)
-        if plan is None or not plan.is_scaled:
+        floors = [f for f in self._projects.load_floors(project_id) if f.is_scaled]
+        if not floors:
             raise UserFacingError("Primero cargue el plano y defina su escala (pasos 1 y 2).")
+        plan = floors[0]
         scenario = self._simulations.load_scenario(project_id)
         run = self._simulations.last_run(project_id)
         profiles = tuple(self._simulations.profiles())
@@ -59,8 +60,9 @@ class ReportService:
             project=project,
             plan=plan,
             plan_image=self._projects.load_floor_image(plan),
+            floors=tuple((f, self._projects.load_floor_image(f)) for f in floors),
             scenario=scenario,
-            norms=self._norms.evaluate(plan, scenario),
+            norms=self._norms.evaluate_building(floors, scenario),
             result=None if run is None else run.result,
             congestion=() if run is None else run.observations,
             profiles=profiles,

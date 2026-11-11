@@ -99,8 +99,19 @@ def _observation(
     )
 
 
-def evaluate(plan: FloorPlan, occupancies: Sequence[Occupancy], rules: RuleSet) -> NormEvaluation:
-    """Evalúa aforo y anchos del piso con las reglas dadas."""
+def evaluate(
+    plan: FloorPlan,
+    occupancies: Sequence[Occupancy],
+    rules: RuleSet,
+    *,
+    exit_occupants: int | None = None,
+) -> NormEvaluation:
+    """Evalúa aforo y anchos del piso con las reglas dadas.
+
+    ``exit_occupants`` indica cuántas personas deben salir por las salidas de este piso (en un
+    edificio de varios pisos, todo el edificio sale por el piso 1). ``0`` omite la verificación
+    del ancho total de salidas (pisos altos, que se evacúan por escaleras).
+    """
     scale = plan.scale_m_per_px
     if scale is None:
         raise ValueError("El plano no tiene escala; defínala en el paso 2.")
@@ -209,7 +220,7 @@ def evaluate(plan: FloorPlan, occupancies: Sequence[Occupancy], rules: RuleSet) 
 
     # ------------------------------------------------------------------ salidas del local
     exit_rule = rules.first(KIND_WIDTH_PER_PERSON, "salida")
-    total_people = sum(counts.values())
+    total_people = sum(counts.values()) if exit_occupants is None else exit_occupants
     if exit_rule is not None and total_people > 0:
         factor = use(exit_rule).number("metros_por_persona")
         available = sum(seg.length for _, seg, confirmed in exits_m if confirmed)
