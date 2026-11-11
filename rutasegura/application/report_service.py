@@ -10,7 +10,7 @@ from rutasegura.application.norms_service import NormsService
 from rutasegura.application.projects import ProjectService
 from rutasegura.application.simulation_service import SimulationService
 from rutasegura.data.default_profiles import load_default_profiles
-from rutasegura.data.report_pdf import ReportContent, write_report
+from rutasegura.data.report_pdf import ReportContent, ScenarioRow, write_report
 from rutasegura.engines.simulation.params import SimulationParams
 from rutasegura.resources.texts import TEXTS
 
@@ -68,7 +68,29 @@ class ReportService:
             parameters=describe_parameters(self._simulations.params),
             legal_disclaimer=TEXTS.legal_disclaimer,
             app_version=rutasegura.__version__,
+            comparison=self._comparison(project_id),
         )
+
+    def _comparison(self, project_id: int) -> tuple[ScenarioRow, ...]:
+        rows = []
+        for scenario in self._simulations.list_scenarios(project_id):
+            run = self._simulations.last_run(project_id, scenario.name)
+            if run is None:
+                continue
+            result = run.result
+            rows.append(
+                ScenarioRow(
+                    name=scenario.name,
+                    occupants=scenario.total_occupants,
+                    blocked_exits=tuple(sorted(scenario.blocked_exits)),
+                    total_time_s=result.total_time_s,
+                    evacuated=result.agents_evacuated,
+                    agents=result.agents_total,
+                    completed=result.completed,
+                    bottlenecks=len(result.bottlenecks),
+                )
+            )
+        return tuple(rows)
 
     def generate(self, project_id: int, path: Path) -> Path:
         """Escribe el informe en ``path`` (agrega «.pdf» si falta)."""

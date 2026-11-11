@@ -50,6 +50,20 @@ WARNING_BG = colors.HexColor("#fdebd0")
 USE_LABELS = {"educacion": "Educación", "oficinas": "Oficinas", "comercio": "Comercio"}
 
 
+@dataclass(frozen=True)
+class ScenarioRow:
+    """Fila de la comparación de escenarios."""
+
+    name: str
+    occupants: int
+    blocked_exits: tuple[str, ...]
+    total_time_s: float
+    evacuated: int
+    agents: int
+    completed: bool
+    bottlenecks: int
+
+
 @dataclass(frozen=True, eq=False)
 class ReportContent:
     """Todo lo que va en el informe."""
@@ -66,6 +80,7 @@ class ReportContent:
     parameters: tuple[tuple[str, str], ...]
     legal_disclaimer: str
     app_version: str
+    comparison: tuple[ScenarioRow, ...] = ()
     generated_at: datetime = field(default_factory=datetime.now)
 
 
@@ -278,7 +293,7 @@ def write_report(path: Path, content: ReportContent) -> None:
                 f"<b>Advertencia:</b> este informe usó {len(unverified)} regla(s) normativa(s) "
                 "que todavía no fueron contrastadas con el texto oficial del RNE (marcadas como "
                 "«no verificada»). Sus valores y artículos deben confirmarse antes de usar estos "
-                "resultados con fines formales. La lista está en la sección 5.",
+                "resultados con fines formales. La lista está al final del informe.",
                 s["warning"],
             )
         )
@@ -369,8 +384,35 @@ def write_report(path: Path, content: ReportContent) -> None:
                 Spacer(1, 4),
             ]
 
+    # ------------------------------------------------------------------ comparación
+    section = 4
+    if len(content.comparison) >= 2:
+        story.append(Paragraph(f"{section}. Comparación de escenarios", s["h1"]))
+        story.append(
+            Paragraph("Última simulación de cada escenario «qué pasa si» del local.", s["body"])
+        )
+        rows = [
+            ["Escenario", "Personas", "Salidas bloqueadas", "Tiempo total", "Evacuados", "Cuellos"]
+        ]
+        for row in content.comparison:
+            evacuated = f"{row.evacuated} de {row.agents}" + (
+                "" if row.completed else " (incompleto)"
+            )
+            rows.append(
+                [
+                    row.name,
+                    str(row.occupants),
+                    ", ".join(row.blocked_exits) or "Ninguna",
+                    format_duration(row.total_time_s),
+                    evacuated,
+                    str(row.bottlenecks),
+                ]
+            )
+        story.append(_table(rows, [4 * cm, 1.8 * cm, 3.6 * cm, 2.4 * cm, 2.8 * cm, 1.8 * cm], s))
+        section += 1
+
     # ------------------------------------------------------------------ parámetros
-    story.append(Paragraph("4. Parámetros y semilla", s["h1"]))
+    story.append(Paragraph(f"{section}. Parámetros y semilla", s["h1"]))
     story.append(
         Paragraph(
             f"Escenario: {_escape(content.scenario.name)}. Semilla: {content.scenario.seed} "
@@ -407,7 +449,7 @@ def write_report(path: Path, content: ReportContent) -> None:
         )
 
     # ------------------------------------------------------------------ reglas usadas
-    story.append(Paragraph("5. Reglas normativas usadas", s["h1"]))
+    story.append(Paragraph(f"{section + 1}. Reglas normativas usadas", s["h1"]))
     rule_rows = [["Regla", "Descripción", "Cita", "Estado"]]
     for rule in norms.rules_used:
         rule_rows.append(
@@ -422,7 +464,7 @@ def write_report(path: Path, content: ReportContent) -> None:
 
     # ------------------------------------------------------------------ aclaración
     story += [
-        Paragraph("6. Aclaración legal", s["h1"]),
+        Paragraph(f"{section + 2}. Aclaración legal", s["h1"]),
         Paragraph(_escape(content.legal_disclaimer), s["warning"]),
     ]
 

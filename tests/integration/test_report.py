@@ -91,3 +91,20 @@ def test_norms_service(services: AppServices) -> None:
     assert evaluation.total_capacity == 48
     with pytest.raises(UserFacingError, match="escala"):
         services.norms.evaluate(dataclasses.replace(two_rooms(), scale_m_per_px=None), None)
+
+
+def test_report_compares_scenarios(services: AppServices, project: int, tmp_path: Path) -> None:
+    plan = services.projects.load_floor(project)
+    assert plan is not None
+    base = _scenario(services, project, 20)
+    services.simulations.save_scenario(project, base)
+    services.simulations.run(project, plan, base)
+    path = services.reports.generate(project, tmp_path / "solo_base.pdf")
+    assert "Comparación de escenarios" not in _pdf_text(path)[0]  # un solo escenario
+    variant = services.simulations.save_variant(project, "Doble aforo", base, 200, set())
+    services.simulations.run(project, plan, variant)
+    text, _ = _pdf_text(services.reports.generate(project, tmp_path / "comparacion.pdf"))
+    assert "Comparación de escenarios" in text
+    assert "Doble aforo" in text
+    assert "Escenario base" in text
+    assert "Reglas normativas usadas" in text
