@@ -58,6 +58,7 @@ class ScenarioRow:
     occupants: int
     blocked_exits: tuple[str, ...]
     total_time_s: float
+    time_90_s: float | None
     evacuated: int
     agents: int
     completed: bool
@@ -389,10 +390,23 @@ def write_report(path: Path, content: ReportContent) -> None:
     if len(content.comparison) >= 2:
         story.append(Paragraph(f"{section}. Comparación de escenarios", s["h1"]))
         story.append(
-            Paragraph("Última simulación de cada escenario «qué pasa si» del local.", s["body"])
+            Paragraph(
+                "Última simulación de cada escenario «qué pasa si» del local. El tiempo total "
+                "suele depender de la persona que reacciona más tarde; el tiempo para evacuar al "
+                "90 % muestra mejor el efecto de bloquear salidas o cambiar el aforo.",
+                s["body"],
+            )
         )
         rows = [
-            ["Escenario", "Personas", "Salidas bloqueadas", "Tiempo total", "Evacuados", "Cuellos"]
+            [
+                "Escenario",
+                "Personas",
+                "Salidas bloqueadas",
+                "Tiempo total",
+                "Al 90 %",
+                "Evacuados",
+                "Cuellos",
+            ]
         ]
         for row in content.comparison:
             evacuated = f"{row.evacuated} de {row.agents}" + (
@@ -404,11 +418,13 @@ def write_report(path: Path, content: ReportContent) -> None:
                     str(row.occupants),
                     ", ".join(row.blocked_exits) or "Ninguna",
                     format_duration(row.total_time_s),
+                    "—" if row.time_90_s is None else format_duration(row.time_90_s),
                     evacuated,
                     str(row.bottlenecks),
                 ]
             )
-        story.append(_table(rows, [4 * cm, 1.8 * cm, 3.6 * cm, 2.4 * cm, 2.8 * cm, 1.8 * cm], s))
+        widths = [3.4 * cm, 1.7 * cm, 3 * cm, 2.2 * cm, 2 * cm, 2.6 * cm, 1.6 * cm]
+        story.append(_table(rows, widths, s))
         section += 1
 
     # ------------------------------------------------------------------ parámetros

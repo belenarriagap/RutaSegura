@@ -84,6 +84,7 @@ class ReportService:
                     occupants=scenario.total_occupants,
                     blocked_exits=tuple(sorted(scenario.blocked_exits)),
                     total_time_s=result.total_time_s,
+                    time_90_s=result.time_to_evacuate(0.9),
                     evacuated=result.agents_evacuated,
                     agents=result.agents_total,
                     completed=result.completed,

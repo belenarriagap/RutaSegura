@@ -49,6 +49,20 @@ class SimulationResult:
         if self.curve_times_s.shape != self.curve_evacuated.shape:
             raise ValueError("La curva de evacuados necesita tiempos y conteos del mismo largo.")
 
+    def time_to_evacuate(self, fraction: float) -> float | None:
+        """Primer instante registrado en que salió al menos ``fraction`` de las personas.
+
+        Complementa al tiempo total, que suele depender de la persona que reacciona más tarde.
+        ``None`` si esa fracción nunca se alcanzó.
+        """
+        if not 0 < fraction <= 1:
+            raise ValueError("La fracción debe estar entre 0 y 1.")
+        needed = fraction * self.agents_total
+        reached = np.flatnonzero(self.curve_evacuated >= needed - 1e-9)
+        if self.agents_total == 0 or reached.size == 0:
+            return None
+        return float(self.curve_times_s[reached[0]])
+
 
 @dataclass(frozen=True, eq=False, slots=True)
 class Trajectories:
