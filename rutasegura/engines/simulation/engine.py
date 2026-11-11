@@ -175,7 +175,11 @@ class Simulation:
         wall_d = bilinear(self._wall_dist, self.grid, pos)
         wall_g = bilinear(self._wall_grad, self.grid, pos)
         wall_force = p.wall_strength * np.exp((radius - wall_d) / p.wall_range_m)
-        accel += wall_force[:, None] * wall_g
+        wall_acc = wall_force[:, None] * wall_g
+        # Los muros empujan de costado, nunca hacia atrás: en esquinas y pasos angostos (entre
+        # muebles) un empuje contrario a la ruta dejaba a la persona inmóvil para siempre.
+        backward = np.minimum(np.einsum("ij,ij->i", wall_acc, direction), 0.0)
+        accel += wall_acc - backward[:, None] * direction
 
         # integración (los que esperan no se desplazan)
         new_vel = vel + accel * dt

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import numpy as np
 import pytest
 
 from rutasegura.domain.enums import AgentStatus
-from rutasegura.domain.people import Occupancy
+from rutasegura.domain.people import Occupancy, PersonProfile
+from rutasegura.domain.plan import Obstacle
 from rutasegura.engines.navigation.grid import build_grid
 from rutasegura.engines.simulation.engine import SimulationCancelled, bilinear
 from rutasegura.engines.simulation.neighbors import neighbor_pairs
@@ -18,8 +20,8 @@ from rutasegura.engines.simulation.population import (
     lognormal_params,
     sample_reaction_times,
 )
-from tests.fixtures.simple_plans import room_with_patio, single_room, two_rooms
-from tests.unit.engines.simulation.helpers import make_simulation
+from tests.fixtures.simple_plans import rect, room_with_patio, single_room, two_rooms
+from tests.unit.engines.simulation.helpers import PROFILES, make_simulation
 
 
 class TestPopulation:
@@ -55,6 +57,11 @@ class TestPopulation:
             make_simulation(single_room(), [Occupancy("Aula 1", "astronauta", 1)])
         with pytest.raises(PopulationError, match="no pueden llegar a ninguna salida"):
             make_simulation(single_room(), [Occupancy("Aula 1", "adulto", 1)], blocked={"Salida 1"})
+        # contorno abierto: el ambiente queda "afuera" y el mensaje lo dice
+        room = single_room()
+        leaky = dataclasses.replace(room, walls=room.walls[1:])
+        with pytest.raises(PopulationError, match="conectado con el exterior"):
+            make_simulation(leaky, [Occupancy("Aula 1", "adulto", 1)])
 
     def test_no_occupants(self) -> None:
         sim = make_simulation(single_room(), [Occupancy("Aula 1", "adulto", 0)])
@@ -120,6 +127,21 @@ class TestMovement:
         two = make_simulation(single_room(exit_width=0.9, second_exit=True), occ).run().result
         assert two.total_time_s < one.total_time_s
         assert {name for name, _ in two.time_per_exit_s} == {"Salida 1", "Salida 2"}
+
+    @pytest.mark.parametrize("gap_m", [0.8, 1.0])
+    def test_wide_agents_pass_narrow_gaps_between_furniture(self, gap_m: float) -> None:
+        """Caso real: personas con silla de ruedas (radio 0.35 m) quedaban inmóviles para
+        siempre en esquinas y pasos angostos porque el muro las empujaba hacia atrás."""
+        wide = (*PROFILES, PersonProfile("silla", 0.8, 5.0, 2.0, 0.35))
+        furniture = (
+            Obstacle(rect(4, 0, 0.6, 1.7)),
+            Obstacle(rect(4, 1.7 + gap_m, 0.6, 4.3 - gap_m)),
+            Obstacle(rect(6.5, 1.5, 1.0, 3.0)),
+        )
+        plan = dataclasses.replace(single_room(), obstacles=furniture)
+        for seed in range(3):
+            sim = make_simulation(plan, [Occupancy("Aula 1", "silla", 3)], seed=seed, profiles=wide)
+            assert sim.run().result.completed
 
     def test_safe_zone_evacuation(self) -> None:
         out = make_simulation(room_with_patio(), [Occupancy("Aula 1", "adulto", 10)]).run()
