@@ -105,6 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, help="carpeta con planos etiquetados")
     parser.add_argument("--overlays", type=Path, help="carpeta donde guardar imágenes de control")
     args = parser.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):  # consola de Windows (cp1252) o salida redirigida
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     cases: list[Case] = []
     if args.synthetic:
