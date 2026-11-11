@@ -40,7 +40,7 @@ class CalibrationDialog(QDialog):
         self,
         calibration: CalibrationService,
         project_id: int,
-        plan: FloorPlan,
+        plan: FloorPlan | list[FloorPlan],
         scenario: Scenario,
         *,
         grid: tuple[Sequence[float], Sequence[float]] | None = None,
@@ -82,7 +82,8 @@ class CalibrationDialog(QDialog):
         form.addRow(texts.total_time, time_row)
         self.exit_spins: dict[str, QSpinBox] = {}
         exits_form = QFormLayout()
-        for exit_ in plan.exits:
+        plans = plan if isinstance(plan, list) else [plan]
+        for exit_ in (e for p in plans for e in p.exits):
             if not exit_.confirmed:
                 continue
             spin = QSpinBox()

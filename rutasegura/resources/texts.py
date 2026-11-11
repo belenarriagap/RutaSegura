@@ -69,7 +69,8 @@ class WizardTexts:
     editor_title: str = "Paso 3. Corregir plano"
     editor_help: str = (
         "Revise lo que encontró el sistema. Los elementos en naranja tienen baja confianza y las "
-        "salidas en línea discontinua son propuestas: selecciónelas y pulse «Confirmar salida»."
+        "salidas en línea discontinua son propuestas: selecciónelas y pulse «Confirmar salida». "
+        "En edificios de varios pisos, dibuje cada escalera en todos los pisos que une."
     )
     detect: str = "Detectar automáticamente"
     detecting: str = "Buscando muros y puertas… esto puede tardar unos segundos."
@@ -111,6 +112,7 @@ class EditorTexts:
     hint_zoom: str = "Rueda del mouse: acercar o alejar. Botón central: desplazar."
     pending_exits: str = "Hay {count} salida(s) propuesta(s) por confirmar."
     exit_name: str = "Salida {number}"
+    stair_name: str = "Escalera {letter}"
     cmd_add: str = "Agregar {what}"
     cmd_delete: str = "Borrar {count} elemento(s)"
     cmd_confirm: str = "Confirmar {count} salida(s)"
@@ -175,6 +177,23 @@ class SimulationTexts:
     no_run: str = "Todavía no hay resultados. Pulse «Simular»."
     provisional: str = (
         "Los parámetros del modelo son provisionales hasta calibrarlos con un simulacro real."
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class FloorTexts:
+    """Selector de pisos (RF12)."""
+
+    label: str = "Piso:"
+    name: str = "Piso {number}"
+    add: str = "+ Agregar piso"
+    delete: str = "Eliminar este piso"
+    confirm_delete: str = "¿Eliminar el {name} con su plano, ambientes y ocupantes?"
+    max_floors: str = "RutaSegura trabaja con edificios de hasta 4 pisos."
+    cannot_delete: str = "Solo se puede eliminar el piso más alto, y nunca el piso 1."
+    added: str = (
+        "Se agregó el {name}. Cargue su plano (paso 1) y dibuje la escalera en el mismo lugar "
+        "que en el piso de abajo, con el mismo nombre."
     )
 
 
@@ -335,6 +354,7 @@ class UiTexts:
     simulation: SimulationTexts = field(default_factory=SimulationTexts)
     norms: NormsTexts = field(default_factory=NormsTexts)
     scenarios: ScenarioTexts = field(default_factory=ScenarioTexts)
+    floors: FloorTexts = field(default_factory=FloorTexts)
     calibration: CalibrationTexts = field(default_factory=CalibrationTexts)
     report: ReportTexts = field(default_factory=ReportTexts)
 

@@ -180,8 +180,7 @@ class ComparisonDialog(QDialog):
         self,
         scenarios: Sequence[Scenario],
         load_run: Callable[[str], SimulationRun | None],
-        plan: FloorPlan,
-        image: Image | None,
+        floors: Sequence[tuple[FloorPlan, Image | None]],
         *,
         texts: ScenarioTexts = TEXTS.scenarios,
         sim_texts: SimulationTexts = TEXTS.simulation,
@@ -205,7 +204,7 @@ class ComparisonDialog(QDialog):
             if len(names) > k:
                 combo.setCurrentIndex(k)
             combo.currentIndexChanged.connect(self._refresh)
-            viewer.set_plan(plan, image)
+            viewer.set_floors(list(floors))
             column = QVBoxLayout()
             column.addWidget(QLabel("A" if k == 0 else "B"))
             column.addWidget(combo)

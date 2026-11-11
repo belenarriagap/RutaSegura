@@ -76,6 +76,19 @@ def next_exit_name(plan: FloorPlan, template: str) -> str:
     return template.format(number=number)
 
 
+def next_stair_name(plan: FloorPlan, template: str) -> str:
+    """Primer nombre «Escalera A», «Escalera B»… no usado en el piso.
+
+    Dibujar las escaleras en el mismo orden en cada piso hace que se emparejen solas.
+    """
+    used = {s.name for s in plan.stairs}
+    for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        name = template.format(letter=letter)
+        if name not in used:
+            return name
+    return template.format(letter=str(len(plan.stairs) + 1))
+
+
 class PlanEditor(QWidget):
     """Editor: herramientas, capas visibles y edición con deshacer."""
 
@@ -256,7 +269,8 @@ class PlanEditor(QWidget):
         plan = self._plan
         t = self._texts
         if kind is ElementType.STAIR:
-            new = dataclasses.replace(plan, stairs=(*plan.stairs, Stair(area)))
+            stair = Stair(area, name=next_stair_name(plan, t.stair_name))
+            new = dataclasses.replace(plan, stairs=(*plan.stairs, stair))
             what = t.tool_stair
         elif kind is ElementType.OBSTACLE:
             new = dataclasses.replace(plan, obstacles=(*plan.obstacles, Obstacle(area)))

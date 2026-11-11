@@ -56,6 +56,7 @@ class PlanScene(QGraphicsScene):
         self._background: QGraphicsPixmapItem | None = None
         self._items: dict[ElementType, list[QGraphicsItem]] = {k: [] for k in ElementType}
         self._labels: list[QGraphicsItem] = []
+        self._stair_labels: list[QGraphicsItem] = []
         self._visible: dict[ElementType | None, bool] = {k: True for k in ElementType}
         self._visible[None] = True  # None = fondo
 
@@ -84,9 +85,10 @@ class PlanScene(QGraphicsScene):
             for item in items:
                 self.removeItem(item)
             items.clear()
-        for label in self._labels:
+        for label in self._labels + self._stair_labels:
             self.removeItem(label)
         self._labels.clear()
+        self._stair_labels.clear()
 
         for i, wall in enumerate(plan.walls):
             low = wall.confidence < LOW_CONFIDENCE
@@ -112,6 +114,16 @@ class PlanScene(QGraphicsScene):
             brush = QBrush(STAIR_COLOR, Qt.BrushStyle.BDiagPattern)
             pen = _pen(STAIR_COLOR, 2, dashed=not stair.confirmed)
             self._add_polygon(ElementType.STAIR, i, stair.area, pen, brush)
+            if stair.name:
+                label = QGraphicsSimpleTextItem(stair.name)
+                label.setBrush(QBrush(STAIR_COLOR))
+                label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+                center = stair.area.centroid
+                label.setPos(center.x, center.y)
+                label.setZValue(4)
+                label.setVisible(self._visible[ElementType.STAIR])
+                self.addItem(label)
+                self._stair_labels.append(label)
         for i, obstacle in enumerate(plan.obstacles):
             color = QColor(OBSTACLE_COLOR)
             color.setAlpha(140)
@@ -186,6 +198,9 @@ class PlanScene(QGraphicsScene):
                 item.setSelected(False)
         if kind is ElementType.EXIT:
             for label in self._labels:
+                label.setVisible(visible)
+        if kind is ElementType.STAIR:
+            for label in self._stair_labels:
                 label.setVisible(visible)
 
     def is_layer_visible(self, kind: ElementType | None) -> bool:

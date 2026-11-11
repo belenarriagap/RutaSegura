@@ -26,7 +26,7 @@ from rutasegura.domain.results import SimulationResult, Trajectories
 from rutasegura.presentation.editor.scene import PlanScene
 from rutasegura.presentation.editor.view import PlanView
 from rutasegura.presentation.qt_support import to_pixmap
-from rutasegura.resources.texts import TEXTS, SimulationTexts
+from rutasegura.resources.texts import TEXTS, FloorTexts, SimulationTexts
 
 PROFILE_COLORS = ("#2471a3", "#e67e22", "#8e44ad", "#16a085", "#c0392b", "#7f8c8d")
 SPEEDS = (0.5, 1.0, 2.0, 4.0, 8.0)
@@ -122,12 +122,20 @@ class SimulationViewer(QWidget):
     time_changed = Signal(float)
 
     def __init__(
-        self, texts: SimulationTexts = TEXTS.simulation, parent: QWidget | None = None
+        self,
+        texts: SimulationTexts = TEXTS.simulation,
+        parent: QWidget | None = None,
+        floor_texts: FloorTexts = TEXTS.floors,
     ) -> None:
         super().__init__(parent)
         self._texts = texts
+        self._floor_texts = floor_texts
         self._trajectories: Trajectories | None = None
+        self._result: SimulationResult | None = None
+        self._floors: dict[int, tuple[FloorPlan, npt.NDArray[np.uint8] | None]] = {}
+        self._level = 0
         self._scale = 1.0
+        self._fallback_scale = 1.0
         self._time = 0.0
         self._speed = 1.0
         self._end = 0.0
@@ -162,8 +170,13 @@ class SimulationViewer(QWidget):
         self.evacuated_label = QLabel()
         self.heatmap_check = QCheckBox(texts.heatmap)
         self.heatmap_check.toggled.connect(self.heatmap.setVisible)
+        self.floor_label = QLabel(floor_texts.label)
+        self.floor_combo = QComboBox()
+        self.floor_combo.currentIndexChanged.connect(self._on_floor_selected)
 
         controls = QHBoxLayout()
+        controls.addWidget(self.floor_label)
+        controls.addWidget(self.floor_combo)
         controls.addWidget(self.play_button)
         controls.addWidget(QLabel(texts.speed))
         controls.addWidget(self.speed_combo)
@@ -179,20 +192,67 @@ class SimulationViewer(QWidget):
 
     # ------------------------------------------------------------------ datos
     def set_plan(self, plan: FloorPlan, image: npt.NDArray[np.uint8] | None) -> None:
-        """Fondo y elementos del plano (sin edición)."""
+        """Fondo y elementos de un solo plano (sin edición)."""
+        self.set_floors([(plan, image)])
+
+    def set_floors(self, floors: list[tuple[FloorPlan, npt.NDArray[np.uint8] | None]]) -> None:
+        """Pisos del edificio: con más de uno aparece el selector de piso."""
+        self._floors = {plan.level: (plan, image) for plan, image in floors}
+        levels = sorted(self._floors)
+        self.floor_combo.blockSignals(True)
+        self.floor_combo.clear()
+        for level in levels:
+            self.floor_combo.addItem(self._floor_texts.name.format(number=level + 1), level)
+        self.floor_combo.blockSignals(False)
+        multi = len(levels) > 1
+        self.floor_label.setVisible(multi)
+        self.floor_combo.setVisible(multi)
+        self.show_floor(levels[0] if levels else 0)
+
+    @property
+    def level(self) -> int:
+        """Piso mostrado."""
+        return self._level
+
+    def show_floor(self, level: int) -> None:
+        """Muestra un piso: su plano, su mapa de calor y las personas que están en él."""
+        self._level = level
+        index = self.floor_combo.findData(level)
+        if index >= 0 and self.floor_combo.currentIndex() != index:
+            self.floor_combo.blockSignals(True)
+            self.floor_combo.setCurrentIndex(index)
+            self.floor_combo.blockSignals(False)
+        plan, image = self._floors.get(level, (FloorPlan(level=level), None))
+        self._scale = plan.scale_m_per_px or self._fallback_scale
         self.scene.set_image(image)
         self.scene.render_plan(plan)
         for item in self.scene.all_element_items():
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self._configure_run()
         self.view.fit_all()
+
+    def _on_floor_selected(self, index: int) -> None:
+        level = self.floor_combo.itemData(index)
+        if level is not None:
+            self.show_floor(int(level))
 
     def set_run(
         self, trajectories: Trajectories | None, result: SimulationResult | None, scale: float
     ) -> None:
-        """Carga una corrida (o limpia el visor con ``None``)."""
+        """Carga una corrida (o limpia el visor con ``None``).
+
+        ``scale`` se usa solo si el plano del piso no tiene escala propia.
+        """
         self.pause()
         self._trajectories = trajectories
-        self._scale = scale
+        self._result = result
+        self._fallback_scale = scale
+        plan = self._floors.get(self._level, (FloorPlan(), None))[0]
+        self._scale = plan.scale_m_per_px or scale
+        self._configure_run()
+
+    def _configure_run(self) -> None:
+        trajectories, result, scale = self._trajectories, self._result, self._scale
         if trajectories is None or result is None or trajectories.frame_count == 0:
             self.agents.configure(QRectF(), np.zeros(0), np.zeros(0, np.int32))
             self.heatmap.setPixmap(to_pixmap(np.zeros((1, 1, 4), np.uint8)))
@@ -209,11 +269,18 @@ class SimulationViewer(QWidget):
             trajectories.radius_m.astype(np.float64) / scale,
             trajectories.profile_index,
         )
-        self.heatmap.setPixmap(to_pixmap(heatmap_rgba(result.density_map)))
-        self.heatmap.setScale(result.cell_size_m / scale)
-        self.heatmap.setPos(result.grid_origin_m[0] / scale, result.grid_origin_m[1] / scale)
+        maps = {m.level: m for m in result.maps()}
+        floor_map = maps.get(self._level) if result.floor_maps else result.maps()[0]
+        if floor_map is None:
+            self.heatmap.setPixmap(to_pixmap(np.zeros((1, 1, 4), np.uint8)))
+        else:
+            self.heatmap.setPixmap(to_pixmap(heatmap_rgba(floor_map.density_map)))
+            self.heatmap.setScale(floor_map.cell_size_m / scale)
+            self.heatmap.setPos(
+                floor_map.grid_origin_m[0] / scale, floor_map.grid_origin_m[1] / scale
+            )
         self._set_enabled(True)
-        self.set_time(0.0)
+        self.set_time(min(self._time, self._end))
 
     # ------------------------------------------------------------------ reproducción
     @property
@@ -273,9 +340,16 @@ class SimulationViewer(QWidget):
         span = times[nxt] - times[idx]
         alpha = 0.0 if span <= 0 else (self._time - times[idx]) / span
         pos = traj.positions[idx] * (1 - alpha) + traj.positions[nxt] * alpha
-        visible = traj.status[idx] != AgentStatus.EVACUATED
+        present = traj.status[idx] != AgentStatus.EVACUATED
+        visible = present
+        if traj.level is not None:
+            here = traj.levels_at(idx)
+            visible = present & (here == self._level)
+            # quien cambia de piso entre cuadros no se interpola entre dos planos distintos
+            jumped = here != traj.levels_at(nxt)
+            pos[jumped] = traj.positions[idx][jumped]
         self.agents.set_frame(pos.astype(np.float64) / self._scale, visible)
-        evacuated = self._total - int(visible.sum())
+        evacuated = self._total - int(present.sum())
         self.evacuated_label.setText(
             self._texts.evacuated.format(done=evacuated, total=self._total)
         )

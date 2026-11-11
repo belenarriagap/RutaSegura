@@ -68,8 +68,7 @@ class SimulationPage(QWidget):
         self._texts = texts
         self._stexts = scenario_texts
         self._project_id: int | None = None
-        self._plan = FloorPlan()
-        self._image: Image | None = None
+        self._floors: list[tuple[FloorPlan, Image | None]] = []
         self._scenario = Scenario(BASE_SCENARIO, 0)  # escenario base (lo edita el paso 4)
         self._variants: list[Scenario] = []
         self._current = BASE_SCENARIO
@@ -162,17 +161,24 @@ class SimulationPage(QWidget):
         return [self.scenario_combo.itemText(i) for i in range(self.scenario_combo.count())]
 
     def set_content(
-        self, project_id: int, plan: FloorPlan, image: Image | None, scenario: Scenario
+        self,
+        project_id: int,
+        floors: list[tuple[FloorPlan, Image | None]],
+        scenario: Scenario,
     ) -> None:
-        """Plano, escenario base (en memoria) y variantes guardadas."""
+        """Pisos (plano e imagen), escenario base (en memoria) y variantes guardadas."""
         if self._project_id != project_id:
             self._current = BASE_SCENARIO
         self._project_id = project_id
-        self._plan = plan
-        self._image = image
+        self._floors = sorted(floors, key=lambda f: f[0].level)
         self._scenario = scenario
-        self.viewer.set_plan(plan, image)
+        self.viewer.set_floors(self._floors)
         self._reload_variants()
+
+    @property
+    def plans(self) -> list[FloorPlan]:
+        """Planos de todos los pisos, del más bajo al más alto."""
+        return [plan for plan, _ in self._floors]
 
     def _reload_variants(self) -> None:
         if self._project_id is None:
@@ -209,7 +215,7 @@ class SimulationPage(QWidget):
 
     # ------------------------------------------------------------------ variantes
     def _exit_names(self) -> list[str]:
-        return [e.name for e in self._plan.exits if e.confirmed]
+        return [e.name for plan in self.plans for e in plan.exits if e.confirmed]
 
     def create_variant(self, name: str, percent: int, blocked: frozenset[str]) -> bool:
         """Crea un escenario «qué pasa si» y lo selecciona."""
@@ -291,8 +297,7 @@ class SimulationPage(QWidget):
         return ComparisonDialog(
             [self._scenario, *self._variants],
             lambda name: self._simulations.last_run(project_id, name),
-            self._plan,
-            self._image,
+            self._floors,
             texts=self._stexts,
             sim_texts=self._texts,
             parent=self,
@@ -314,7 +319,7 @@ class SimulationPage(QWidget):
         """Lanza la simulación en otro hilo."""
         if self._project_id is None or (self.job is not None and self.job.running):
             return
-        project_id, plan, scenario = self._project_id, self._plan, self.current_scenario
+        project_id, plan, scenario = self._project_id, self.plans, self.current_scenario
         simulations = self._simulations
 
         def work(report: Callable[[float], None], should_cancel: Callable[[], bool]) -> object:

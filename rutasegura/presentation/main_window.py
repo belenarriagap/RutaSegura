@@ -9,6 +9,7 @@ import numpy.typing as npt
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCloseEvent, QFont, QKeySequence
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -40,6 +41,7 @@ from rutasegura.resources.texts import TEXTS, UiTexts
 Image = npt.NDArray[np.uint8]
 
 STEP_LOAD, STEP_SCALE, STEP_EDIT, STEP_ROOMS, STEP_NORMS, STEP_SIMULATE, STEP_REPORT = range(7)
+MAX_FLOORS = 4
 ACTIVE_STEPS = (
     STEP_LOAD,
     STEP_SCALE,
@@ -68,6 +70,8 @@ class MainWindow(QMainWindow):
         self._scenario: Scenario | None = None
         self._scenario_dirty = False
         self._project_use = UseType.EDUCATION
+        # Pisos que no se están editando (ya guardados): nivel → (plano, imagen).
+        self._other_floors: dict[int, tuple[FloorPlan, Image | None]] = {}
         self._project_name = ""
 
         self.setWindowTitle(texts.window_title)
@@ -170,9 +174,29 @@ class MainWindow(QMainWindow):
         ):
             self.stack.addWidget(page)
 
+        ft = t.floors
+        self.floor_combo = QComboBox()
+        self.floor_combo.currentIndexChanged.connect(self._on_floor_selected)
+        self.add_floor_button = QPushButton(ft.add)
+        self.add_floor_button.clicked.connect(self.add_floor)
+        self.delete_floor_button = QPushButton(ft.delete)
+        self.delete_floor_button.clicked.connect(self.ask_delete_floor)
+        floor_bar = QHBoxLayout()
+        floor_bar.addWidget(QLabel(ft.label))
+        floor_bar.addWidget(self.floor_combo)
+        floor_bar.addWidget(self.add_floor_button)
+        floor_bar.addWidget(self.delete_floor_button)
+        floor_bar.addStretch(1)
+        self.floor_bar = QWidget()
+        self.floor_bar.setLayout(floor_bar)
+        right = QVBoxLayout()
+        right.setContentsMargins(0, 0, 0, 0)
+        right.addWidget(self.floor_bar)
+        right.addWidget(self.stack, stretch=1)
+
         layout = QHBoxLayout()
         layout.addWidget(self.steps_list)
-        layout.addWidget(self.stack, stretch=1)
+        layout.addLayout(right, stretch=1)
         central = QWidget()
         central.setLayout(layout)
         self.setCentralWidget(central)
@@ -243,8 +267,12 @@ class MainWindow(QMainWindow):
         except UserFacingError as exc:
             self.show_error(exc.message)
             return
-        plan = self._services.projects.load_floor(project_id) or FloorPlan()
-        image = self._services.projects.load_floor_image(plan)
+        floors = self._services.projects.load_floors(project_id) or [FloorPlan()]
+        images = [self._services.projects.load_floor_image(f) for f in floors]
+        plan, image = floors[0], images[0]
+        self._other_floors = {
+            f.level: (f, img) for f, img in zip(floors[1:], images[1:], strict=True)
+        }
         self.project_id = project_id
         self._project_use = project.use
         self._project_name = project.name
@@ -257,6 +285,7 @@ class MainWindow(QMainWindow):
         self.editor_page.set_content(plan, image)
         self.setWindowTitle(f"{project.name} — {self._texts.window_title}")
         self.statusBar().showMessage(self._texts.project.opened.format(name=project.name))
+        self._refresh_floor_bar()
         self._update_steps()
         has_elements = bool(plan.walls or plan.doors or plan.exits)
         self.go_to_step(STEP_EDIT if has_elements else STEP_LOAD)
@@ -285,8 +314,109 @@ class MainWindow(QMainWindow):
 
     @property
     def plan(self) -> FloorPlan:
-        """Plano en edición."""
+        """Plano en edición (piso actual)."""
         return self._plan
+
+    @property
+    def level(self) -> int:
+        """Piso en edición (0 = piso 1)."""
+        return self._plan.level
+
+    def all_floors(self) -> list[tuple[FloorPlan, Image | None]]:
+        """Todos los pisos (plano, imagen), del más bajo al más alto."""
+        floors = {**self._other_floors, self._plan.level: (self._plan, self._image)}
+        return [floors[level] for level in sorted(floors)]
+
+    # ----------------------------------------------------------------- pisos
+    def switch_floor(self, level: int) -> bool:
+        """Pasa a editar otro piso (guarda el actual)."""
+        if level == self._plan.level or level not in self._other_floors:
+            return level == self._plan.level
+        if not self.save():
+            return False
+        self._other_floors[self._plan.level] = (self._plan, self._image)
+        self._load_current(*self._other_floors.pop(level))
+        step = self.current_step()
+        self.go_to_step(step if step in ACTIVE_STEPS else STEP_LOAD)
+        return True
+
+    def add_floor(self) -> bool:
+        """Agrega un piso encima del más alto (hasta 4) y lo abre en el paso 1."""
+        ft = self._texts.floors
+        levels = [plan.level for plan, _ in self.all_floors()]
+        if len(levels) >= MAX_FLOORS:
+            self.show_error(ft.max_floors)
+            return False
+        if not self.save():
+            return False
+        self._other_floors[self._plan.level] = (self._plan, self._image)
+        new_level = max(levels) + 1
+        self._load_current(FloorPlan(level=new_level), None)
+        self._dirty = True
+        self.save()
+        self.statusBar().showMessage(
+            ft.added.format(name=ft.name.format(number=new_level + 1)), 8000
+        )
+        self.go_to_step(STEP_LOAD)
+        return True
+
+    def ask_delete_floor(self) -> None:
+        """Pide confirmación y elimina el piso actual."""
+        ft = self._texts.floors
+        name = ft.name.format(number=self._plan.level + 1)
+        answer = QMessageBox.question(self, ft.delete, ft.confirm_delete.format(name=name))
+        if answer == QMessageBox.StandardButton.Yes:
+            self.delete_current_floor()
+
+    def delete_current_floor(self) -> bool:
+        """Elimina el piso actual (solo el más alto, y nunca el piso 1)."""
+        levels = [plan.level for plan, _ in self.all_floors()]
+        level = self._plan.level
+        if self.project_id is None or level == min(levels) or level != max(levels):
+            self.show_error(self._texts.floors.cannot_delete)
+            return False
+        if self._scenario is not None:
+            self._scenario = dataclasses.replace(
+                self._scenario,
+                occupancies=tuple(o for o in self._scenario.occupancies if o.level != level),
+            )
+            self._scenario_dirty = True
+        self._services.projects.delete_floor(self.project_id, level)
+        self._dirty = self._image_dirty = False
+        below = max(self._other_floors)
+        self._load_current(*self._other_floors.pop(below))
+        self.save()
+        self.go_to_step(
+            STEP_LOAD if self.current_step() not in ACTIVE_STEPS else self.current_step()
+        )
+        return True
+
+    def _load_current(self, plan: FloorPlan, image: Image | None) -> None:
+        self._plan, self._image = plan, image
+        self._dirty = self._image_dirty = False
+        self.load_page.set_image(image)
+        self.scale_page.set_content(image, plan.scale_m_per_px)
+        self.editor_page.set_content(plan, image)
+        self._refresh_floor_bar()
+
+    def _refresh_floor_bar(self) -> None:
+        ft = self._texts.floors
+        levels = [plan.level for plan, _ in self.all_floors()]
+        self.floor_combo.blockSignals(True)
+        self.floor_combo.clear()
+        for level in levels:
+            self.floor_combo.addItem(ft.name.format(number=level + 1), level)
+        self.floor_combo.setCurrentIndex(self.floor_combo.findData(self._plan.level))
+        self.floor_combo.blockSignals(False)
+        self.add_floor_button.setEnabled(len(levels) < MAX_FLOORS)
+        self.delete_floor_button.setEnabled(
+            self._plan.level == max(levels) and self._plan.level != min(levels)
+        )
+
+    def _on_floor_selected(self, index: int) -> None:
+        level = self.floor_combo.itemData(index)
+        if level is not None and not self.switch_floor(int(level)):
+            self._refresh_floor_bar()
 
     @property
     def scenario(self) -> Scenario | None:
@@ -339,9 +469,7 @@ class MainWindow(QMainWindow):
             )
             self.stack.setCurrentWidget(self.report_page)
         elif step == STEP_SIMULATE and self._scenario is not None:
-            self.simulation_page.set_content(
-                self.project_id, self._plan, self._image, self._scenario
-            )
+            self.simulation_page.set_content(self.project_id, self.all_floors(), self._scenario)
             self.stack.setCurrentWidget(self.simulation_page)
         else:
             self.stack.setCurrentWidget(self.pending_page)
@@ -364,6 +492,7 @@ class MainWindow(QMainWindow):
                 item.setToolTip(self._texts.wizard.step_not_ready)
         self.save_action.setEnabled(self.project_id is not None)
         self.calibrate_action.setEnabled(self.project_id is not None)
+        self.floor_bar.setVisible(self.project_id is not None)
         if self.project_id is None:
             self.stack.setCurrentWidget(self.welcome_page)
 
@@ -374,8 +503,10 @@ class MainWindow(QMainWindow):
         self._image_dirty = True
         self._plan = FloorPlan(level=self._plan.level)
         self._dirty = True
-        if self._scenario is not None and self._scenario.occupancies:
-            self._scenario = dataclasses.replace(self._scenario, occupancies=())
+        level = self._plan.level
+        if self._scenario is not None and any(o.level == level for o in self._scenario.occupancies):
+            kept = tuple(o for o in self._scenario.occupancies if o.level != level)
+            self._scenario = dataclasses.replace(self._scenario, occupancies=kept)
             self._scenario_dirty = True
         self.editor_page.set_content(self._plan, image)
 
@@ -403,7 +534,7 @@ class MainWindow(QMainWindow):
         dialog = CalibrationDialog(
             self._services.calibration,
             self.project_id,
-            self._plan,
+            [plan for plan, _ in self.all_floors()],
             self._scenario,
             texts=self._texts.calibration,
             parent=self,
