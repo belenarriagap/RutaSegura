@@ -1,0 +1,77 @@
+# Medios de evacuación: anchos de puertas, salidas y pasillos, y barra antipánico.
+#
+# TODAS LAS REGLAS ESTÁN SIN VERIFICAR (verificado: false). Confirmar valores y artículos con el
+# texto oficial del RNE A.130 antes de usar el informe con fines formales.
+#
+# Tipos:
+#   ancho_por_persona  → ancho requerido = personas × metros_por_persona (elemento: puerta | salida)
+#   ancho_minimo       → ancho libre mínimo en metros (elemento: puerta | salida | pasillo)
+#   barra_antipanico   → aviso cuando un ambiente supera umbral_personas
+
+reglas:
+  - id: EVA-PUERTA-POR-PERSONA
+    tipo: ancho_por_persona
+    descripcion: Ancho total de puertas de un ambiente según sus ocupantes
+    elemento: puerta
+    metros_por_persona: 0.005  # VERIFICAR con texto oficial RNE
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Ensanche las puertas del ambiente o agregue otra puerta para que las personas salgan
+      sin formar filas.
+
+  - id: EVA-SALIDA-POR-PERSONA
+    tipo: ancho_por_persona
+    descripcion: Ancho total de las salidas del local según sus ocupantes
+    elemento: salida
+    metros_por_persona: 0.005  # VERIFICAR con texto oficial RNE
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Ensanche las salidas existentes o habilite otra salida al exterior o a una zona segura.
+
+  - id: EVA-PUERTA-MINIMO
+    tipo: ancho_minimo
+    descripcion: Ancho libre mínimo de puertas de evacuación
+    elemento: puerta
+    metros: 0.90  # VERIFICAR con texto oficial RNE
+    norma: RNE A.130
+    articulo: Art. 5  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Ensanche la puerta o retire lo que reduzca su paso libre (hojas fijas, muebles).
+
+  - id: EVA-SALIDA-MINIMO
+    tipo: ancho_minimo
+    descripcion: Ancho libre mínimo de salidas
+    elemento: salida
+    metros: 1.00  # VERIFICAR con texto oficial RNE
+    norma: RNE A.130
+    articulo: Art. 5  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Ensanche la salida o mantenga abiertas ambas hojas de la puerta durante la jornada.
+
+  - id: EVA-PASILLO-MINIMO
+    tipo: ancho_minimo
+    descripcion: Ancho libre mínimo de pasillos de evacuación
+    elemento: pasillo
+    metros: 1.20  # VERIFICAR con texto oficial RNE
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Retire obstáculos del pasillo o busque una ruta de evacuación más ancha.
+
+  - id: EVA-ANTIPANICO
+    tipo: barra_antipanico
+    descripcion: Barra antipánico en puertas de ambientes con muchas personas
+    umbral_personas: 100
+    norma: RNE A.130
+    articulo: Art. 5  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Verifique que las puertas de evacuación de este ambiente tengan barra antipánico y abran
+      en el sentido de la evacuación.

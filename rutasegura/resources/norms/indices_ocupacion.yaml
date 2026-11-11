@@ -1,0 +1,135 @@
+# Índices de ocupación por uso y categoría (aforo = área útil ÷ m² por persona).
+#
+# TODAS LAS REGLAS ESTÁN SIN VERIFICAR (verificado: false). Los valores, normas y artículos son
+# referencias a confirmar con el texto oficial del RNE y la guía de cálculo de aforo de CENEPRED.
+# El informe advierte cada regla no verificada que se haya usado.
+#
+# Campos: id, tipo, descripcion, uso, categoria, etiqueta, por_defecto, m2_por_persona
+# (null = sin aforo, p. ej. circulaciones), circulacion, norma, articulo, verificado, recomendacion.
+
+reglas:
+  # ---------------------------------------------------------------- Educación
+  - id: OCU-EDU-AULA
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de aulas
+    uso: educacion
+    categoria: aula
+    etiqueta: Aula
+    por_defecto: true
+    m2_por_persona: 1.5  # VERIFICAR con texto oficial RNE
+    norma: RNE A.040
+    articulo: Art. 9  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Reduzca la cantidad de personas en el ambiente o use un ambiente más amplio.
+
+  - id: OCU-EDU-TALLER
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de talleres, laboratorios y bibliotecas
+    uso: educacion
+    categoria: taller
+    etiqueta: Taller, laboratorio o biblioteca
+    m2_por_persona: 5.0  # VERIFICAR con texto oficial RNE
+    norma: RNE A.040
+    articulo: Art. 9  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Reduzca la cantidad de personas en el ambiente o use un ambiente más amplio.
+
+  - id: OCU-EDU-SUM
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de salas de uso múltiple
+    uso: educacion
+    categoria: sum
+    etiqueta: Sala de uso múltiple
+    m2_por_persona: 1.0  # VERIFICAR con texto oficial RNE
+    norma: RNE A.040
+    articulo: Art. 9  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Limite el número de asistentes en los eventos según el aforo calculado.
+
+  - id: OCU-EDU-ADMIN
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de ambientes administrativos
+    uso: educacion
+    categoria: administrativo
+    etiqueta: Administrativo (dirección, secretaría)
+    m2_por_persona: 10.0  # VERIFICAR con texto oficial RNE
+    norma: RNE A.040
+    articulo: Art. 9  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Reduzca la cantidad de personas en el ambiente o redistribuya los puestos de trabajo.
+
+  - id: OCU-EDU-PASILLO
+    tipo: indice_ocupacion
+    descripcion: Pasillos y circulaciones (sin aforo propio)
+    uso: educacion
+    categoria: pasillo
+    etiqueta: Pasillo o circulación
+    m2_por_persona: null
+    circulacion: true
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Mantenga los pasillos libres de obstáculos.
+
+  # ---------------------------------------------------------------- Oficinas
+  - id: OCU-OFI-OFICINA
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de oficinas
+    uso: oficinas
+    categoria: oficina
+    etiqueta: Oficina
+    por_defecto: true
+    m2_por_persona: 9.5  # VERIFICAR con texto oficial RNE
+    norma: RNE A.080
+    articulo: Art. 6  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Reduzca la cantidad de personas en el ambiente o redistribuya los puestos de trabajo.
+
+  - id: OCU-OFI-PASILLO
+    tipo: indice_ocupacion
+    descripcion: Pasillos y circulaciones (sin aforo propio)
+    uso: oficinas
+    categoria: pasillo
+    etiqueta: Pasillo o circulación
+    m2_por_persona: null
+    circulacion: true
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Mantenga los pasillos libres de obstáculos.
+
+  # ---------------------------------------------------------------- Comercio
+  - id: OCU-COM-TIENDA
+    tipo: indice_ocupacion
+    descripcion: Índice de ocupación de áreas de venta de tiendas
+    uso: comercio
+    categoria: tienda
+    etiqueta: Área de venta
+    por_defecto: true
+    m2_por_persona: 2.8  # VERIFICAR con texto oficial RNE
+    norma: RNE A.070
+    articulo: Art. 8  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Controle el ingreso de clientes para no superar el aforo calculado.
+
+  - id: OCU-COM-PASILLO
+    tipo: indice_ocupacion
+    descripcion: Pasillos y circulaciones (sin aforo propio)
+    uso: comercio
+    categoria: pasillo
+    etiqueta: Pasillo o circulación
+    m2_por_persona: null
+    circulacion: true
+    norma: RNE A.130
+    articulo: Art. 22  # VERIFICAR con texto oficial RNE
+    verificado: false
+    recomendacion: >-
+      Mantenga los pasillos libres de obstáculos.
