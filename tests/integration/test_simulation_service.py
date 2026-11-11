@@ -15,7 +15,7 @@ from rutasegura.data.trajectories import load_run
 from rutasegura.domain.enums import ObservationType, UseType
 from rutasegura.domain.geometry import Point
 from rutasegura.domain.people import Occupancy
-from rutasegura.domain.plan import FloorPlan
+from rutasegura.domain.plan import Exit, FloorPlan
 from tests.fixtures.simple_plans import SCALE, single_room, two_rooms
 
 
@@ -59,7 +59,7 @@ def test_full_run_is_saved_and_reloaded(services: AppServices) -> None:
     ("plan", "occupants", "message"),
     [
         (dataclasses.replace(single_room(), scale_m_per_px=None), 1, "escala"),
-        (single_room(confirmed=False), 1, "sin confirmar"),
+        (single_room(confirmed=False), 1, "ninguna salida confirmada"),
         (dataclasses.replace(single_room(), exits=()), 1, "ninguna salida"),
         (dataclasses.replace(single_room(), rooms=()), 1, "ambientes"),
         (single_room(), 0, "cuántas personas"),
@@ -107,3 +107,33 @@ def test_room_detection_service(services: AppServices) -> None:
         services.plans.detect_rooms(
             dataclasses.replace(plan, scale_m_per_px=None), UseType.OFFICE, "A{number}"
         )
+
+
+def test_unconfirmed_proposals_do_not_block(services: AppServices) -> None:
+    """Una salida propuesta sin confirmar se ignora; basta con una confirmada."""
+    plan = single_room(second_exit=True)
+    proposed = dataclasses.replace(plan.exits[1], confirmed=False)
+    plan = dataclasses.replace(plan, exits=(plan.exits[0], proposed))
+    project_id = _project(services, plan)
+    scenario = dataclasses.replace(
+        services.simulations.load_scenario(project_id),
+        occupancies=(Occupancy("Aula 1", "adulto", 10),),
+    )
+    run = services.simulations.run(project_id, plan, scenario)
+    assert run.result.completed
+    assert {name for name, _ in run.result.time_per_exit_s} == {"Salida 1"}
+
+
+def test_detection_keeps_confirmed_exits(services: AppServices) -> None:
+    from tests.fixtures.synthetic_plans import generate_plan
+
+    synthetic = generate_plan(1)
+    manual = Exit(synthetic.exits[0], "Puerta principal")  # dibujada a mano sobre una salida real
+    plan = FloorPlan(scale_m_per_px=synthetic.scale_m_per_px, exits=(manual,))
+    detected = services.plans.detect(synthetic.image, plan)
+    assert detected.exits[0] == manual
+    proposals = detected.exits[1:]
+    assert all(not e.confirmed for e in proposals)
+    # la propuesta que coincidía con la salida manual se descartó
+    assert len(proposals) == len(synthetic.exits) - 1
+    assert len({e.name for e in detected.exits}) == len(detected.exits)

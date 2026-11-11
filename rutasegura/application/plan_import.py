@@ -72,11 +72,29 @@ class PlanImportService:
     def detect(image: Image, plan: FloorPlan) -> FloorPlan:
         """Devuelve ``plan`` con muros, puertas y salidas propuestas detectados en ``image``.
 
-        Reemplaza los muros, puertas y salidas anteriores y conserva escaleras, obstáculos,
-        zonas seguras, ambientes y escala.
+        Reemplaza muros y puertas. Conserva las salidas ya confirmadas por el usuario (las
+        propuestas que caen sobre ellas se descartan), además de escaleras, obstáculos, zonas
+        seguras, ambientes y escala.
         """
         result = detect_plan(image, VisionParams(scale_m_per_px=plan.scale_m_per_px))
-        return dataclasses.replace(plan, walls=result.walls, doors=result.doors, exits=result.exits)
+        confirmed = [e for e in plan.exits if e.confirmed]
+        near = (1.0 / plan.scale_m_per_px) if plan.scale_m_per_px else 40.0
+        proposals = [
+            e
+            for e in result.exits
+            if all(e.segment.midpoint.distance_to(c.segment.midpoint) > near for c in confirmed)
+        ]
+        used = {e.name for e in confirmed}
+        renamed = []
+        number = 1
+        for exit_ in proposals:
+            while f"Salida {number}" in used:
+                number += 1
+            used.add(f"Salida {number}")
+            renamed.append(dataclasses.replace(exit_, name=f"Salida {number}"))
+        return dataclasses.replace(
+            plan, walls=result.walls, doors=result.doors, exits=(*confirmed, *renamed)
+        )
 
     @staticmethod
     def detect_rooms(plan: FloorPlan, use: UseType, name_template: str) -> FloorPlan:

@@ -57,10 +57,12 @@ class TestEditing:
     def test_add_undo_redo(self, editor: PlanEditor) -> None:
         editor.add_segment(ElementType.WALL, _seg(0, 0, 100, 0))
         editor.add_segment(ElementType.DOOR, _seg(20, 0, 60, 0))
-        assert len(editor.plan().walls) == 1
+        # la puerta abre el hueco: el muro queda en dos tramos
+        assert [w.segment for w in editor.plan().walls] == [_seg(0, 0, 20, 0), _seg(60, 0, 100, 0)]
         assert len(editor.plan().doors) == 1
         editor.undo_stack.undo()
         assert editor.plan().doors == ()
+        assert editor.plan().walls == (Wall(_seg(0, 0, 100, 0)),)
         editor.undo_stack.undo()
         assert editor.plan().walls == ()
         editor.undo_stack.redo()

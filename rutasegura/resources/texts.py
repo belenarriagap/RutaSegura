@@ -95,6 +95,7 @@ class EditorTexts:
     tool_safe_zone: str = "Zona segura"
     delete: str = "Borrar"
     confirm_exit: str = "Confirmar salida"
+    confirm_all: str = "Confirmar todas"
     undo: str = "Deshacer"
     redo: str = "Rehacer"
     fit: str = "Ver todo"
@@ -177,6 +178,10 @@ class SimulationTexts:
     no_run: str = "Todavía no hay resultados. Pulse «Simular»."
     provisional: str = (
         "Los parámetros del modelo son provisionales hasta calibrarlos con un simulacro real."
+    )
+    pending_exits: str = (
+        "Hay {count} salida(s) propuesta(s) sin confirmar: se tratarán como cerradas. Si son "
+        "salidas reales, confírmelas en el paso 3."
     )
 
 

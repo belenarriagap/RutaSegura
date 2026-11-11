@@ -56,6 +56,9 @@ def test_load_scale_detect_save_and_reopen(
     # Paso 3: al entrar se detecta automáticamente
     with qtbot.waitSignal(window.editor_page.detection_finished, timeout=60_000):
         window.go_to_step(STEP_EDIT)
+        # mientras se detecta, no se puede dibujar (antes se perdía lo dibujado)
+        assert not window.editor_page.editor.isEnabled()
+    assert window.editor_page.editor.isEnabled()
     plan = window.editor_page.editor.plan()
     assert len(plan.walls) > 4
     assert plan.doors
@@ -63,7 +66,9 @@ def test_load_scale_detect_save_and_reopen(
     assert plan.has_pending_proposals
 
     # Confirmar salidas y guardar
-    window.editor_page.editor.confirm_exits(range(len(plan.exits)))
+    assert window.editor_page.editor.confirm_all_action.isEnabled()
+    window.editor_page.editor.confirm_all_exits()
+    assert not window.editor_page.editor.confirm_all_action.isEnabled()
     assert window.save()
     assert not window.is_dirty
     assert errors == []

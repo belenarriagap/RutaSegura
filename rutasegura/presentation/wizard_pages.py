@@ -408,6 +408,7 @@ class EditorPage(QWidget):
             return
         image, plan = self._image, self.editor.plan()
         self.detect_button.setEnabled(False)
+        self.editor.setEnabled(False)  # evita perder lo que se dibuje mientras se detecta
         self.status_label.setText(self._texts.detecting)
         self.setCursor(Qt.CursorShape.BusyCursor)
         run_in_background(
@@ -417,6 +418,7 @@ class EditorPage(QWidget):
     def _on_detected(self, result: object) -> None:
         self.unsetCursor()
         self.detect_button.setEnabled(True)
+        self.editor.setEnabled(True)
         if isinstance(result, FloorPlan):
             self.editor.apply(result, self._editor_texts.cmd_detect)
             self.status_label.setText(
@@ -429,6 +431,7 @@ class EditorPage(QWidget):
     def _on_failed(self, message: str) -> None:
         self.unsetCursor()
         self.detect_button.setEnabled(True)
+        self.editor.setEnabled(True)
         self.status_label.setText("")
         self.error.emit(message)
         self.detection_finished.emit()

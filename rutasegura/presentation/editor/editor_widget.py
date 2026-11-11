@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from rutasegura.application.plan_editing import snap_opening
 from rutasegura.domain.enums import ElementType
 from rutasegura.domain.geometry import Point, Polygon, Segment
 from rutasegura.domain.plan import Door, Exit, FloorPlan, Obstacle, SafeZone, Stair, Wall
@@ -135,6 +136,8 @@ class PlanEditor(QWidget):
         self.delete_action.triggered.connect(self.delete_selected)
         self.confirm_action = QAction(t.confirm_exit, self)
         self.confirm_action.triggered.connect(self.confirm_selected_exits)
+        self.confirm_all_action = QAction(t.confirm_all, self)
+        self.confirm_all_action.triggered.connect(self.confirm_all_exits)
         self.undo_action = self.undo_stack.createUndoAction(self, t.undo)
         self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
         self.redo_action = self.undo_stack.createRedoAction(self, t.redo)
@@ -144,6 +147,7 @@ class PlanEditor(QWidget):
         for action in (
             self.delete_action,
             self.confirm_action,
+            self.confirm_all_action,
             self.undo_action,
             self.redo_action,
             fit_action,
@@ -242,6 +246,7 @@ class PlanEditor(QWidget):
         self.pending_label.setText(
             self._texts.pending_exits.format(count=pending) if pending else ""
         )
+        self.confirm_all_action.setEnabled(pending > 0)
         self._update_actions()
         self.plan_changed.emit(plan)
 
@@ -254,11 +259,17 @@ class PlanEditor(QWidget):
             new = dataclasses.replace(plan, walls=(*plan.walls, Wall(segment)))
             what = t.tool_wall
         elif kind is ElementType.DOOR:
-            new = dataclasses.replace(plan, doors=(*plan.doors, Door(segment)))
+            snap = snap_opening(plan, segment)  # se ubica sobre el muro y le abre el hueco
+            new = dataclasses.replace(
+                plan, walls=snap.walls, doors=(*plan.doors, Door(snap.opening))
+            )
             what = t.tool_door
         elif kind is ElementType.EXIT:
+            snap = snap_opening(plan, segment)
             name = next_exit_name(plan, t.exit_name)
-            new = dataclasses.replace(plan, exits=(*plan.exits, Exit(segment, name)))
+            new = dataclasses.replace(
+                plan, walls=snap.walls, exits=(*plan.exits, Exit(snap.opening, name))
+            )
             what = t.tool_exit
         else:
             raise ValueError(f"{kind} no se dibuja como segmento.")
@@ -318,6 +329,10 @@ class PlanEditor(QWidget):
             dataclasses.replace(self._plan, exits=exits),
             self._texts.cmd_confirm.format(count=len(pending)),
         )
+
+    def confirm_all_exits(self) -> None:
+        """Confirma todas las salidas propuestas."""
+        self.confirm_exits(range(len(self._plan.exits)))
 
     def confirm_selected_exits(self) -> None:
         """Confirma las salidas propuestas seleccionadas."""

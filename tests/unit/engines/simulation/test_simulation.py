@@ -53,7 +53,7 @@ class TestPopulation:
             make_simulation(single_room(), [Occupancy("Aula 9", "adulto", 1)])
         with pytest.raises(PopulationError, match="astronauta"):
             make_simulation(single_room(), [Occupancy("Aula 1", "astronauta", 1)])
-        with pytest.raises(PopulationError, match="salida alcanzable"):
+        with pytest.raises(PopulationError, match="no pueden llegar a ninguna salida"):
             make_simulation(single_room(), [Occupancy("Aula 1", "adulto", 1)], blocked={"Salida 1"})
 
     def test_no_occupants(self) -> None:

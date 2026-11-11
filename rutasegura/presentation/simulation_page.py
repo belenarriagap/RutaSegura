@@ -99,6 +99,9 @@ class SimulationPage(QWidget):
         self.progress.setRange(0, 100)
         self.progress.setVisible(False)
         self.status_label = QLabel()
+        self.pending_label = QLabel()
+        self.pending_label.setWordWrap(True)
+        self.pending_label.setStyleSheet("color: #b9770e;")
 
         self.viewer = SimulationViewer(texts)
         self.summary_label = QLabel(texts.no_run)
@@ -140,6 +143,7 @@ class SimulationPage(QWidget):
         layout.addWidget(help_label)
         layout.addLayout(scenario_row)
         layout.addLayout(row)
+        layout.addWidget(self.pending_label)
         layout.addWidget(splitter, stretch=1)
 
     # ------------------------------------------------------------------ contenido
@@ -172,6 +176,11 @@ class SimulationPage(QWidget):
         self._project_id = project_id
         self._floors = sorted(floors, key=lambda f: f[0].level)
         self._scenario = scenario
+        pending = sum(1 for plan in self.plans for e in plan.exits if not e.confirmed)
+        self.pending_label.setText(
+            self._texts.pending_exits.format(count=pending) if pending else ""
+        )
+        self.pending_label.setVisible(pending > 0)
         self.viewer.set_floors(self._floors)
         self._reload_variants()
 

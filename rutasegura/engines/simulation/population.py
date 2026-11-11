@@ -82,8 +82,9 @@ def spawn_agents(
         rows, cols = np.nonzero(cells)
         if rows.size == 0:
             raise PopulationError(
-                f"Las personas de «{occ.room_name}» no tienen una salida alcanzable. Revise que el "
-                "ambiente tenga una puerta y que el edificio tenga al menos una salida confirmada."
+                f"Las personas de «{occ.room_name}» no pueden llegar a ninguna salida. Revise que "
+                "el ambiente tenga una puerta y que las salidas estén dibujadas sobre un muro "
+                "exterior (si quedan separadas del muro, el paso sigue cerrado)."
             )
         pick = rng.integers(0, rows.size, size=occ.count)
         centers = grid.cell_centers(rows[pick], cols[pick])

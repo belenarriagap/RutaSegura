@@ -40,6 +40,10 @@ from rutasegura.engines.simulation.params import SimulationParams
 from rutasegura.engines.simulation.population import PopulationError, RoomArea, spawn_agents
 
 BASE_SCENARIO = "Escenario base"
+_NO_EXITS = (
+    "El plano{floor} no tiene ninguna salida confirmada ni zona segura disponible. "
+    "Dibuje una salida sobre un muro exterior (paso 3) o confirme las salidas propuestas."
+)
 DEFAULT_SEED = 2026
 
 CONGESTION_TEXT = (
@@ -337,13 +341,12 @@ class SimulationService:
     def _validate(plan: FloorPlan, scenario: Scenario) -> float:
         if plan.scale_m_per_px is None:
             raise UserFacingError("Primero defina la escala del plano (paso 2).")
-        if any(not e.confirmed for e in plan.exits):
-            raise UserFacingError(
-                "Hay salidas propuestas sin confirmar. Confírmelas o bórrelas en el paso 3."
-            )
-        usable_exits = [e for e in plan.exits if e.name not in scenario.blocked_exits]
+        # Las salidas propuestas sin confirmar no bloquean: se ignoran (quedan cerradas).
+        usable_exits = [
+            e for e in plan.exits if e.confirmed and e.name not in scenario.blocked_exits
+        ]
         if not usable_exits and not plan.safe_zones:
-            raise UserFacingError("El plano no tiene ninguna salida ni zona segura disponible.")
+            raise UserFacingError(_NO_EXITS.format(floor=""))
         if not plan.rooms:
             raise UserFacingError("Primero marque los ambientes del local (paso 4).")
         if scenario.total_occupants == 0:
@@ -356,21 +359,14 @@ class SimulationService:
                 raise UserFacingError(
                     f"El piso {plan.level + 1} no tiene escala; defínala en el paso 2."
                 )
-            if any(not e.confirmed for e in plan.exits):
-                raise UserFacingError(
-                    f"El piso {plan.level + 1} tiene salidas propuestas sin confirmar. "
-                    "Confírmelas o bórrelas en el paso 3."
-                )
         if not any(plan.rooms for plan in floors):
             raise UserFacingError("Primero marque los ambientes del local (paso 4).")
         if scenario.total_occupants == 0:
             raise UserFacingError("Indique cuántas personas hay en cada ambiente (paso 4).")
         lowest = min(floors, key=lambda f: f.level)
-        usable = [e for e in lowest.exits if e.name not in scenario.blocked_exits]
+        usable = [e for e in lowest.exits if e.confirmed and e.name not in scenario.blocked_exits]
         if not usable and not lowest.safe_zones:
-            raise UserFacingError(
-                f"El piso {lowest.level + 1} no tiene ninguna salida ni zona segura disponible."
-            )
+            raise UserFacingError(_NO_EXITS.format(floor=f" del piso {lowest.level + 1}"))
 
     @staticmethod
     def _congestion(bottleneck: Bottleneck, plan: FloorPlan, multi: bool = False) -> Observation:

@@ -4,6 +4,24 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Sin publicar]
 
+### Correcciones posteriores al Hito 6 (2026-11-10)
+
+#### Corregido
+- **Salidas manuales que no se podían usar:**
+  - Si se dibujaba una salida mientras corría la detección automática del paso 3, al terminar la
+    detección se perdía y quedaban propuestas sin confirmar que bloqueaban la simulación. Ahora el
+    editor queda bloqueado mientras se detecta, y la detección conserva las salidas confirmadas.
+  - Una salida o puerta dibujada a 0.6 m o más del muro quedaba inalcanzable, porque el muro seguía
+    cerrado. Ahora el editor la **encaja en el muro más cercano y le abre el hueco** (hasta 0.8 m de
+    distancia).
+- **Propuestas sin confirmar:** ya no bloquean la simulación. Se tratan como cerradas y el paso 6
+  lo avisa.
+- **Mensajes:** si las personas no llegan a ninguna salida, el mensaje explica que la salida debe
+  estar sobre un muro exterior.
+
+#### Agregado
+- **Botón «Confirmar todas»** en el editor, para las salidas propuestas.
+
 ### Hito 6: entrega (2026-11-10)
 
 #### Agregado
